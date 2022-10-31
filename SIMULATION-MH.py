@@ -1,6 +1,4 @@
 #IMPORTS
-from pickle import DICT
-from typing_extensions import Self
 import numpy as np
 from scipy.stats import lognorm
 import dendropy
@@ -12,41 +10,57 @@ from biotite.sequence.phylo import upgma
 from Bio import Phylo
 import emcee
 np.random.seed(123)
-from collections import OrderedDict
+
+
 
 class TreeSequenceGeneration():
-    
-    '''
-    VARIABLES THAT ARE USED THROUGHOUT THE METHODS
-    '''
-    SHAPE=""
-    THETA=""
-    TREE=""
-    SEQUENCE=""
-    SEQSEQ=""
-    TAXA=""
-    POPULATIONSIZE=""
-    COALESCENTTTIME=""
-    GENERATED_TREE=""
-    TIMES=""
-    BRANCHLENGTH=dict()
-    TREESTRING=""
-    STRINGUSEDDICTIONARY=dict()
-    JFINAL=[]
-    NJFINAL=[]
-    ALLNEWICKSTRING=[]
-    SPECIESDICTIONARY=dict()
-    FINALTIMEARRAY=[]
-    MUTATIONDICTIONARY=dict()
 
-    def __init__(self,SHAPE)->None:
-        pass 
+    '''
+    This class is used to generate a phylogenetic tree,
+    generate a sequence based on the phylogenetic tree,
+    generate phylgoenetic tree based on sequence generated,
+    performs metropolis hastings sampling using joint density
+    likelihood and non joint density likelihood functions
+    '''
+
+    def __init__(self,SHAPE)->None: 
         self.SHAPE=SHAPE # PASS A SHAPE WHEN CREATING OBJECT
-    
+        # VARIABLES BELOW ARE USED IN THE OTHER FUNCTIONS FOR THE CLASS
+        self.THETA=""
+        self.TREE=""
+        self.SEQUENCE=""
+        self.SEQSEQ=""
+        self.TAXA=""
+        self.POPULATIONSIZE=""
+        self.COALESCENTTTIME=""
+        self.GENERATED_TREE=""
+        self.TIMES=""
+        self.BRANCHLENGTH=dict()
+        self.TREESTRING=""
+        self.STRINGUSEDDICTIONARY=dict()
+        self.JFINAL=[]
+        self.NJFINAL=[]
+        self.ALLNEWICKSTRING=[]
+        self.SPECIESDICTIONARY=dict()
+        self.FINALTIMEARRAY=[]
+        self.MUTATIONDICTIONARY=dict()
+
+    '''
+    This function generates a random theta value
+    based on the shape parameter.
+    '''
+
     def GenerateTheta(self):
         self.THETA=lognorm.rvs(self.SHAPE, size=1) # GENERATE THETA FROM LOG NORM DISTRIBUTION SHAPE REPRESENTS THE MAX VALUE THAT CAN BE DRAWN
         return self.THETA
     
+    '''
+    This function simulates a tree with a specific 
+    number of taxa and on a pure kingman tree process using a 
+    population size based on the theta function generated from
+    the GenerateTheta function.
+    '''
+
     def SimulateTree(self):
         self.TAXA=dendropy.TaxonNamespace(["z1", "z2", "z3","z4"]) # AMOUNT OF TAXAS/SPECIES
         self.POPULATIONSIZE=2/self.THETA # POPULATION SIZE FORMULA
@@ -61,6 +75,12 @@ class TreeSequenceGeneration():
         print("--------------------------------------------------------------------------------------------------")
         print()
     
+    '''
+    This function generates a sequence of a specific 
+    using the phylogenetic tree generated from the SimulateTree 
+    function.
+    '''
+
     def SimulateSequence(self):
         self.SEQUENCE=dendropy.model.discrete.hky85_chars(1000,tree_model=self.TREE) # SIMULATE SEQEUNCES OF THE TREE UP TO 1000 CHARACTERS
         self.SEQUENCE=self.SEQUENCE.as_string(schema="phylip") # SHOW SEQUENCE USING THE PHYLIP SCHEME
@@ -70,14 +90,33 @@ class TreeSequenceGeneration():
         print("--------------------------------------------------------------------------------------------------")
         print()
     
+    '''
+    This function generates a similarity score
+    based on two sequences provided. This function
+    will have to be altered for insertions and deletions.
+    I believe it can be altered to take the alignment score. What should be mentioned
+    is that the sequences are strings with a counter function applied to it thus you will have to
+    alter the GenerateTreeForSequence function.
+    '''
+
     def ComputeSimilarity(self,SEQUENCEONE,SEQUENCETWO):
         # NEEDS TO WORK FOR INSERTIONS AND DELETIONS SO TAKE THE ALIGNMENT OF THE SETS AND CALCULATE SCORE?
         TERMS=set(SEQUENCEONE).union(SEQUENCETWO) # TAKES THE UNION OF THE TWO SETS
         DOTPRODUCT=sum(SEQUENCEONE.get(k,0)*SEQUENCETWO.get(k,0)for k in TERMS) # MULTIPLY OCCURENCES OF EACH NUCLEOTIDE IN SEQUENCEONE BY SEQUENCETWO THEN TAKE SUM
         MAGA=math.sqrt(sum(SEQUENCEONE.get(k,0)**2 for k in TERMS)) # TAKE THE OCCURENCE OF EACH NUCLEOTIDE SQUARED THEN TAKE SUM SEQUENCEONE
         MAGB=math.sqrt(sum(SEQUENCETWO.get(k,0)**2 for k in TERMS)) # TAKE THE OCCURENCE OF EACH NUCLEOTIDE SQUARED THEN TAKE SUM SEQUENCETWO
-        return DOTPRODUCT/(MAGA*MAGB) 
+        return DOTPRODUCT/(MAGA*MAGB) # RETURNS THE DOT PRODUCT SCORE
 
+    '''
+    This function generates an alignment from the sequences. It then 
+    computes the distance matrix which the generate phylogenetic tree method 
+    upgma is applied to it. It then produces a string which I swap the numbers with the respecitive species.
+    I then used that string to generate a phylogenetic tree. The similarity scores used in the distance matrix
+    will have to be altered to include isnertions and deletions which will require the ComputeSimilarity function
+    to be altered too. I used upgma as the phylogenetic tree generation method but I think it can be swapped for
+    a more simplier method such as neighbor joining (neighbor_joining).
+    '''
+    
     def GenerateTreeForSequence(self):
         ALN=AlignIO.read(StringIO(self.SEQUENCE),'phylip') # INPUTS THE SEQUENCES AS AN ALIGNMENT
         DISTANCEMATRIX=np.zeros([len(ALN), len(ALN)]) # INTIATE DISTANCE MATRIX
@@ -102,6 +141,11 @@ class TreeSequenceGeneration():
         print("--------------------------------------------------------------------------------------------------")
         print()
 
+    '''
+    This function is returning the branch lengths of the 
+    tree for the speices and last common ancestor nodes
+    '''
+
     def ReturnBranchLengths(self):
         NUMBER=1 #INTIAL
         for NODE in self.GENERATED_TREE.find_clades(branch_length=True,order="preorder"): # ITERATE THROUGH TREE
@@ -116,11 +160,26 @@ class TreeSequenceGeneration():
         print("--------------------------------------------------------------------------------------------------")
         print()
 
+    '''
+    This function return the result of the beta function for
+    a provided theta and time value.
+    '''
+
     def BETA(self,THETA,TIME):
         return THETA/(TIME-1) # BETA FUNCTION
 
+    '''
+    This function return the result of the coalescent time function for
+    a provided theta and time value.
+    '''
+
     def COALESCENTTIME(self,THETA,TIME):
         return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
+
+    '''
+    This function generates the maximum time of the tree based on times
+    from the taken from the BRANCHLENGTH dictionary and that the first time is t2 or 2.
+    '''
 
     def ReturnTimes(self):
         TIMES=list(self.BRANCHLENGTH.keys()) # CREATES LIST OF CREATES
@@ -130,6 +189,12 @@ class TreeSequenceGeneration():
                 COPY.append(TIME) # APPENDS BRANCHES THAT ARE NOT CLADE TO THE COPY
         LENGTH=len(COPY)+2 # RETURNS MAXIMUM TIME
         return LENGTH
+
+    '''
+    This function generates a mutation dictionary by calculating the 
+    number of mutations on a species branch using sequence length being 1000
+    and the mutation function.
+    '''
 
     def FindMutations(self):
         MUTATIONDICTIONARY=dict() # CREATES MUTATION DICTIONARY
@@ -141,7 +206,7 @@ class TreeSequenceGeneration():
         return MUTATIONDICTIONARY
 
     '''
-    CODE BELOW NEEDS TO BE SIMPLIFIED THIS IS A ROUGH SKETCH OF THE ALGORITHM
+    ADD COMMENTS
     '''
 
     def FindSpeciesTimes(self,BRANCHLENGTH):
@@ -181,8 +246,16 @@ class TreeSequenceGeneration():
                    MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]]=EXCHANGETWO
          return MUTATIONS
 
+    '''
+    ADD COMMENTS
+    '''
+    
     def Prior(self,THETA):
         return 1 # WHAT DO I RETURN
+
+    '''
+    ADD COMMENTS
+    '''
 
     def LLNJ(self,THETA):
         LP = self.Prior(THETA)
@@ -192,6 +265,10 @@ class TreeSequenceGeneration():
             FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME])
         return LP + FINAL_VALUE
 
+    '''
+    ADD COMMENTS
+    '''
+
     def LLJ(self,THETA):
         LP = self.Prior(THETA)
         FINALVALUE=1
@@ -200,6 +277,10 @@ class TreeSequenceGeneration():
             FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME)))
         return LP + FINALVALUE
     
+    '''
+    ADD COMMENTS
+    '''
+
     def MHastings(self,DICTIONARY):
             print(self.MUTATIONS)
             print(DICTIONARY)
@@ -214,7 +295,7 @@ class TreeSequenceGeneration():
             NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)  
     
     '''
-    IMPLEMENT THE NEW IDEA SUGGESTED BY HUW AND MAYBE WORK OUT ALL FIXES
+    ADD COMMENTS
     '''
     
     def callBackMutation(self,TIME,CURRENTTIME,SPECIE,PASSDICTIONARY,CARRY,MUTATION):
@@ -226,6 +307,10 @@ class TreeSequenceGeneration():
         elif CURRENTTIME-1==TIME:
             PASSDICTIONARY[CURRENTTIME] = CARRY
             self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy())
+    
+    '''
+    ADD COMMENTS
+    '''
 
     def callBacks(self,CALLBACKS,MUTATIONS,SPECIETIMES):
        if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY
@@ -244,7 +329,7 @@ class TreeSequenceGeneration():
                 return self.callBacks(CALLBACKS,MUTATIONS,SPECIETIMES) # RECALLS ITSELF
 
     '''
-    REWRITE THIS
+    ADD COMMENTS
     '''
 
     def IterateThroughIntervalDictionary(self,INTERVALDICTIONARY,KEYS,INDEX,TIMEDICTIONARY):
@@ -268,8 +353,8 @@ class TreeSequenceGeneration():
                 self.FINALTIMEARRAY.append(TIMEDICTIONARY.copy())
   
     '''
-    ITERATING THROUGH THE RESULT PRODUCED FROM THE ALGORITHM ABOVE THEN CALLING MHASTINGS ON IT 
-    '''     
+    ADD COMMENTS
+    '''  
 
     def MHastingsLoop(self):
         self.TIMES=self.ReturnTimes()
@@ -294,7 +379,13 @@ class TreeSequenceGeneration():
             for DICTIONARY in self.FINALTIMEARRAY:
                self.MHastings(DICTIONARY)
 
-# RUNS FUNCTIONS IN THE CLASS
+'''
+Calls the TreeSequenceGeneration class and runs 
+the GenerateTheta, SimulateTree, SimulateSequence,
+GenerateTreeForSequence, ReturnBranchLengths, and
+MHastingsLoop functions.
+'''
+
 if __name__ == "__main__":
     TSG=TreeSequenceGeneration(1)
     TSG.GenerateTheta()

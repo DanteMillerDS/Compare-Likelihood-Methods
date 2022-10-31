@@ -1,5 +1,6 @@
 #IMPORTS
-from re import S
+from pickle import DICT
+from typing_extensions import Self
 import numpy as np
 from scipy.stats import lognorm
 import dendropy
@@ -11,10 +12,13 @@ from biotite.sequence.phylo import upgma
 from Bio import Phylo
 import emcee
 np.random.seed(123)
+from collections import OrderedDict
 
 class TreeSequenceGeneration():
     
-    #VARIABLES THAT ARE USED IN DIFFERENT FUNCTIONS
+    '''
+    VARIABLES THAT ARE USED THROUGHOUT THE METHODS
+    '''
     SHAPE=""
     THETA=""
     TREE=""
@@ -33,6 +37,7 @@ class TreeSequenceGeneration():
     ALLNEWICKSTRING=[]
     SPECIESDICTIONARY=dict()
     FINALTIMEARRAY=[]
+    MUTATIONDICTIONARY=dict()
 
     def __init__(self,SHAPE)->None:
         pass 
@@ -43,7 +48,7 @@ class TreeSequenceGeneration():
         return self.THETA
     
     def SimulateTree(self):
-        self.TAXA=dendropy.TaxonNamespace(["z1", "z2", "z3"]) # AMOUNT OF TAXAS/SPECIES
+        self.TAXA=dendropy.TaxonNamespace(["z1", "z2", "z3","z4"]) # AMOUNT OF TAXAS/SPECIES
         self.POPULATIONSIZE=2/self.THETA # POPULATION SIZE FORMULA
         self.TREE=dendropy.simulate.treesim.pure_kingman_tree(taxon_namespace=self.TAXA,pop_size=self.POPULATIONSIZE) # GENERATE A TREE BASED ON POPULATION SIZE AND TAXA/SPECIES
         print()
@@ -66,33 +71,13 @@ class TreeSequenceGeneration():
         print()
     
     def ComputeSimilarity(self,SEQUENCEONE,SEQUENCETWO):
-        # HAVE TO ACCOMODATE FOR GAPS INSERTIONS AND DELETIONS LATER ON SO WE HAVE TO DO SOME FORM OF ALIGNMENT TO COMPUTE SIMILARLY MAYBE?
-        # MAYBE NOT AS THIS IS BASED MORE ON THE TERMS SIMILARLY
+        # NEEDS TO WORK FOR INSERTIONS AND DELETIONS SO TAKE THE ALIGNMENT OF THE SETS AND CALCULATE SCORE?
         TERMS=set(SEQUENCEONE).union(SEQUENCETWO) # TAKES THE UNION OF THE TWO SETS
         DOTPRODUCT=sum(SEQUENCEONE.get(k,0)*SEQUENCETWO.get(k,0)for k in TERMS) # MULTIPLY OCCURENCES OF EACH NUCLEOTIDE IN SEQUENCEONE BY SEQUENCETWO THEN TAKE SUM
         MAGA=math.sqrt(sum(SEQUENCEONE.get(k,0)**2 for k in TERMS)) # TAKE THE OCCURENCE OF EACH NUCLEOTIDE SQUARED THEN TAKE SUM SEQUENCEONE
         MAGB=math.sqrt(sum(SEQUENCETWO.get(k,0)**2 for k in TERMS)) # TAKE THE OCCURENCE OF EACH NUCLEOTIDE SQUARED THEN TAKE SUM SEQUENCETWO
         return DOTPRODUCT/(MAGA*MAGB) 
-    
-    #def PARTITIONSET(self,SEQUENCE):
-    #    if len(SEQUENCE)==1:
-    #        yield frozenset(SEQUENCE)
-    #        return
-    #    ELEM,*_=SEQUENCE
-    #    REST=frozenset(SEQUENCE-{ELEM})
-    #    for PARTITION in self.PARTITIONSET(REST):
-    #        for SUBSET in PARTITION:
-    #            try:
-    #                ASUBSET=frozenset(SUBSET|frozenset({ELEM}))
-    #            except TypeError:
-    #                ASUBSET=frozenset({SUBSET}|frozenset({ELEM}))
-    #            yield frozenset({ASUBSET})|(PARTITION-{SUBSET})
-    #        yield frozenset({ELEM})|PARTITION
-    #def PRINTSET(self,f):
-    #    if type(f) not in (set, frozenset):
-    #        return str(f)
-    #    return "(" + ",".join(sorted(map(self.PRINTSET, f))) + "):0.0"
-    
+
     def GenerateTreeForSequence(self):
         ALN=AlignIO.read(StringIO(self.SEQUENCE),'phylip') # INPUTS THE SEQUENCES AS AN ALIGNMENT
         DISTANCEMATRIX=np.zeros([len(ALN), len(ALN)]) # INTIATE DISTANCE MATRIX
@@ -108,19 +93,6 @@ class TreeSequenceGeneration():
                 UPDATEDDISTANCEMATRIX[i]=SPECIESNAMES[int(UPDATEDDISTANCEMATRIX[i])] # REPLACES NUMBERS FOR SPECIES WITH A SPECIFIC TAXA LABEL
         UPDATEDDISTANCEMATRIX=''.join(UPDATEDDISTANCEMATRIX) # JOINS THE CHARACTERS AS ONE STRING
         HANDLE=StringIO(UPDATEDDISTANCEMATRIX) # USES STRING AS A FILE OBJECT
-
-        #FINDCLADE=re.findall("[),]:[0-9].[0-9]+",UPDATEDDISTANCEMATRIX)
-        #for NEWICK in self.PARTITIONSET(set(re.findall("[a-zA-Z].:[0-9].[0-9]+",UPDATEDDISTANCEMATRIX))):
-        #    STRING=self.PRINTSET(NEWICK) + ";"
-        #    for CLADE in FINDCLADE:
-        #        STRING=STRING.replace("0.0",CLADE[2:],1)
-        #        if CLADE[2:]+";" in STRING:
-        #            STRING=STRING.replace(CLADE[2:],"0.0",1)
-        #    self.ALLNEWICKSTRING.append(STRING)
-        #self.ALLNEWICKSTRING=self.ALLNEWICKSTRING[1:]
-        #self.TREESTRING=str(upgma(DISTANCEMATRIX))
-        #print(UPDATEDDISTANCEMATRIX)
-
         self.GENERATED_TREE=Phylo.read(HANDLE, "newick") # READS THE NEWICK STRING AS A TREE
         self.GENERATED_TREE.rooted=True # SET THE TREE TO BE ROOTED
         self.GENERATED_TREE.ladderize() # REORGANIZES TREE
@@ -168,15 +140,16 @@ class TreeSequenceGeneration():
                 MUTATIONDICTIONARY[TAXON]=MUTATION # SETS THE BRANCH VALUE IN DICTIONARY TO THE MUTATION VALUE
         return MUTATIONDICTIONARY
 
-    # MAYBE SIMPLIFY CODE OR REWRITE SO IT DOES NOT USE AS MANY FOR LOOPS?
+    '''
+    CODE BELOW NEEDS TO BE SIMPLIFIED THIS IS A ROUGH SKETCH OF THE ALGORITHM
+    '''
+
     def FindSpeciesTimes(self,BRANCHLENGTH):
          MUTATIONS=dict()
          TIMES=2
          BRANCHLIST=list(BRANCHLENGTH.keys())
          BRANCHLIST=list(reversed(BRANCHLIST))
-         for CLADE in BRANCHLIST[:]:
-            if "Clade" not in CLADE:
-                BRANCHLIST.remove(CLADE)
+         [BRANCHLIST.remove(CLADE) for CLADE in BRANCHLIST[:] if "Clade" not in CLADE]
          for CLADE in BRANCHLIST:
             ONLYTWO=0
             NEXTTWO=False
@@ -188,9 +161,7 @@ class TreeSequenceGeneration():
                         MUTATIONS[SPECIES]=TIMES
                     ONLYTWO=ONLYTWO+1
             TIMES=TIMES+1
-         for CLADE in BRANCHLENGTH:
-            if "Clade" not in CLADE and CLADE not in list(MUTATIONS.keys()):
-                MUTATIONS[CLADE]=TIMES
+         [MUTATIONS.update({CLADE:TIMES}) for CLADE in BRANCHLENGTH if "Clade" not in CLADE and CLADE not in list(MUTATIONS.keys())]
          DUPLICATEARRAY=[]
          for MUTATION in list(MUTATIONS.keys()):
             K = [k for k,v in MUTATIONS.items() if v == MUTATIONS[MUTATION]]
@@ -211,27 +182,28 @@ class TreeSequenceGeneration():
          return MUTATIONS
 
     def Prior(self,THETA):
-        return 1 # PRIOR FUNCTION IN PROGRESS
+        return 1 # WHAT DO I RETURN
 
     def LLNJ(self,THETA):
-        #I NEED A LOG PRIOR
+        LP = self.Prior(THETA)
         FINAL_VALUE=1
         for TIME in range(2,self.TIMES+1):
             BETAVALUE=self.BETA(THETA[0],TIME)
-            FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**1)
-            # WILL LOGO PRIOR BE CALLED ON THETA THEN ADDED WITH THE FINAL VALUE
-        return FINAL_VALUE
+            FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME])
+        return LP + FINAL_VALUE
 
     def LLJ(self,THETA):
-        #I NEED A LOG PRIOR
+        LP = self.Prior(THETA)
         FINALVALUE=1
         for TIME in range(2,self.TIMES+1):
-            POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
-            FINALVALUE=FINALVALUE*((POWER)*(self.COALESCENTTIME(THETA[0],TIME)))
-        return FINALVALUE
+            #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
+            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME)))
+        return LP + FINALVALUE
     
     def MHastings(self,DICTIONARY):
-            # UPDATE LIKELIHOOD FUNCTIONS WITH DICTIONARY VALUE
+            print(self.MUTATIONS)
+            print(DICTIONARY)
+            self.MUTATIONDICTIONARY=DICTIONARY
             NWALKER=2
             NDIM=1
             POSITIONJOINT = [lognorm.rvs(self.SHAPE, size=1) for i in range(NWALKER)]
@@ -239,63 +211,88 @@ class TreeSequenceGeneration():
             JOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLNJ,args=())
             JOINTSAMPLER.run_mcmc(POSITIONJOINT,1)
             NONJOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLJ,args=())
-            NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)   
+            NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)  
     
-    def callBackMutation(self,ROOTPLACEMENT,TIME,CURRENTTIME,SPECIE,PASSDICTIONARY):
-        if CURRENTTIME-1<TIME:
-            for TIMEPLACEMENT in range(1,ROOTPLACEMENT+1):
-                PASSDICTIONARY[TIME]=TIMEPLACEMENT-1
-                self.callBackMutation(TIMEPLACEMENT,TIME-1,CURRENTTIME,SPECIE,PASSDICTIONARY)
+    '''
+    IMPLEMENT THE NEW IDEA SUGGESTED BY HUW AND MAYBE WORK OUT ALL FIXES
+    '''
+    
+    def callBackMutation(self,TIME,CURRENTTIME,SPECIE,PASSDICTIONARY,CARRY,MUTATION):
+        if CURRENTTIME-1<TIME: # CURRENT TIME MUST BE LESS THAN THE MAXIMUM TIME
+            for TIMEPLACEMENT in range(1, CARRY+2): 
+                PASSDICTIONARY[CURRENTTIME] = TIMEPLACEMENT-1
+                CARRYOVER=CARRY-PASSDICTIONARY[CURRENTTIME]
+                self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION) # CALLS THE MUTATION FUNCTION FOR THE NEXT TIME
         elif CURRENTTIME-1==TIME:
-            if PASSDICTIONARY not in self.SPECIESDICTIONARY[SPECIE]:
-                    self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy())
-    
+            PASSDICTIONARY[CURRENTTIME] = CARRY
+            self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy())
+
     def callBacks(self,CALLBACKS,MUTATIONS,SPECIETIMES):
-       if CALLBACKS != []:
-            LIST=list(reversed(CALLBACKS))
-            SPECIE=LIST[0]
-            LIST.remove(SPECIE)
-            LIST=list(reversed(LIST))
-            MUTATION=MUTATIONS[SPECIE]
-            TIME=SPECIETIMES[SPECIE]
-            CURRENTTIME=2
-            self.SPECIESDICTIONARY[SPECIE]=[]
-            # MIGHT HAVE TO CORRECT MUTATIONS INTERVALS IF THE FIRST TIME ONLY HAS A SPECIFIC AMOUNT WHAT HAPPENS TO THE OTHER MUTATIONS?
-            for FIRSTTIME in range(1,int(MUTATION)+2):
-                PASSDICTIONARY=dict()
-                PASSDICTIONARY[TIME]=FIRSTTIME-1
-                if SPECIETIMES[SPECIE] == 2:
-                    self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy())
-                self.callBackMutation(FIRSTTIME,TIME-1,CURRENTTIME,SPECIE,PASSDICTIONARY)
-            if LIST != []:
-                return self.callBacks(LIST,MUTATIONS,SPECIETIMES)
+       if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY
+            SPECIE=CALLBACKS[len(CALLBACKS)-1] # GRABS THE SPECIE AT THE LOWEST TIME
+            CALLBACKS.remove(SPECIE) # REMOVE ITS FROM THE SPECIES ARRAY
+            MUTATION=MUTATIONS[SPECIE] # GRABS THE SPECIES ESTIMATED TIME VALUE
+            TIME=SPECIETIMES[SPECIE] # GRABS THE MAXIMUM TIME FOR THE SPECIES
+            CURRENTTIME=2 # DEFINES THE CURRENT TIME TO BE 2
+            self.SPECIESDICTIONARY[SPECIE]=[] # ADDS AN ARRAY IN THE SPECIES DICTIONARY FOR THE SELECTED SPECIE
+            PASSDICTIONARY=dict() # DEFINES A NEW DICTIONARY
+            for FIRSTTIME in range(1,int(MUTATION)+2): # ITERATES THROUGH THE MUTATION PLACEMENT FOR THE FIRST TIME
+                PASSDICTIONARY[CURRENTTIME]=FIRSTTIME-1 # PLACES THE NUMBER OF MUTATIONS IN THE DICTIONARY FOR THE SPECIES
+                CARRYOVER=MUTATION-(PASSDICTIONARY[CURRENTTIME])
+                self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION)
+            if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY EMPTY
+                return self.callBacks(CALLBACKS,MUTATIONS,SPECIETIMES) # RECALLS ITSELF
+
+    '''
+    REWRITE THIS
+    '''
 
     def IterateThroughIntervalDictionary(self,INTERVALDICTIONARY,KEYS,INDEX,TIMEDICTIONARY):
         if INDEX < len(KEYS):
             ARRAYS=INTERVALDICTIONARY[KEYS[INDEX]]
             for ARRAY in ARRAYS:
                 COPY=TIMEDICTIONARY.copy()
-                for MINIARRAY in ARRAY:   
-                    VALUE=sum(TIMEDICTIONARY[MINIARRAY])
-                    COPY[MINIARRAY]=[VALUE+ARRAY[MINIARRAY]]
-                if COPY not in self.FINALTIMEARRAY:
-                    self.FINALTIMEARRAY.append(COPY.copy())
-                self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,INDEX+1,COPY) 
-            
+                for MINIARRAY in list(reversed(ARRAY)):
+                    #if INDEX + 1 < len(KEYS)-1:
+                        VALUE=sum(COPY[MINIARRAY])
+                        COPY[MINIARRAY] = [VALUE + ARRAY[MINIARRAY]]#[ARRAY[MINIARRAY]]
+                self.IterateThroughIntervalDictionary(INTERVALDICTIONARY,KEYS,INDEX+1,COPY) 
+        else:
+            #print(sum(list(self.MUTATIONS.values())))
+            #print(TIMEDICTIONARY)
+            #print(self.MUTATIONS)
+            SUMTIMEMUTATIONS=sum(TIMEDICTIONARY[MUTATION][0] for MUTATION in TIMEDICTIONARY)
+            #print(SUMTIMEMUTATIONS)
+            #print(sum(self.MUTATIONS.values()))
+            if TIMEDICTIONARY not in self.FINALTIMEARRAY and SUMTIMEMUTATIONS==sum(self.MUTATIONS.values()):
+                self.FINALTIMEARRAY.append(TIMEDICTIONARY.copy())
+  
+    '''
+    ITERATING THROUGH THE RESULT PRODUCED FROM THE ALGORITHM ABOVE THEN CALLING MHASTINGS ON IT 
+    '''     
+
     def MHastingsLoop(self):
         self.TIMES=self.ReturnTimes()
         self.MUTATIONS=self.FindMutations()
         self.SPECIETIMES=self.FindSpeciesTimes(self.BRANCHLENGTH)
-        CALLBACKS=[]
+        CALLBACKS=[[]]
         for TAXON in self.BRANCHLENGTH:
             if "Clade" not in TAXON:
-                CALLBACKS.append(TAXON)
-        self.callBacks(CALLBACKS,self.MUTATIONS,self.SPECIETIMES)
-        KEYS=list(self.SPECIESDICTIONARY.keys())
-        TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+1), [0])
-        self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY)
-        for DICTIONARY in self.FINALTIMEARRAY:
-            self.MHastings(DICTIONARY)
+                CALLBACKS[0].append(TAXON)
+        CALLBACKS.append(CALLBACKS[0][2:4]+CALLBACKS[0][0:2]) # NEED TO DESIGN A METHOD THAT GENERATES THESE COMBINATIONS
+        for CALLBACK in CALLBACKS:
+            self.SPECIESDICTIONARY=dict()
+            self.callBacks(CALLBACK,self.MUTATIONS,self.SPECIETIMES)
+            KEYS=list(self.SPECIESDICTIONARY.keys())
+            TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+2), [0])
+            self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY)
+            #print(self.FINALTIMEARRAY)
+            for DICTIONARY in self.FINALTIMEARRAY:
+                DICTIONARY[self.TIMES] = [DICTIONARY[self.TIMES][0] + DICTIONARY[self.TIMES+1][0]]
+                DICTIONARY[self.TIMES+1] = [0]
+            self.FINALTIMEARRAY = [i for n, i in enumerate(self.FINALTIMEARRAY) if i not in self.FINALTIMEARRAY[n + 1:]]
+            for DICTIONARY in self.FINALTIMEARRAY:
+               self.MHastings(DICTIONARY)
 
 # RUNS FUNCTIONS IN THE CLASS
 if __name__ == "__main__":

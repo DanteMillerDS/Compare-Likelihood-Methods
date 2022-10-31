@@ -1,4 +1,5 @@
 #IMPORTS
+from ast import Return
 import numpy as np
 from scipy.stats import lognorm
 import dendropy
@@ -251,7 +252,9 @@ class TreeSequenceGeneration():
     '''
     
     def Prior(self,THETA):
-        return 1 # WHAT DO I RETURN
+        if THETA < 2 and THETA > 0:
+            return 1
+        return .5
 
     '''
     ADD COMMENTS

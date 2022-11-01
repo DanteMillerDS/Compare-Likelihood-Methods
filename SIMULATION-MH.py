@@ -10,6 +10,7 @@ import math
 from biotite.sequence.phylo import upgma
 from Bio import Phylo
 import emcee
+from matplotlib import pyplot as plt
 np.random.seed(123)
 
 
@@ -285,7 +286,7 @@ class TreeSequenceGeneration():
     '''
 
     def MHastings(self,DICTIONARY):
-            print(self.MUTATIONS)
+            print("New Topology")
             print(DICTIONARY)
             self.MUTATIONDICTIONARY=DICTIONARY
             NWALKER=2
@@ -294,8 +295,11 @@ class TreeSequenceGeneration():
             POSITIONNONJOINT = POSITIONJOINT
             JOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLNJ,args=())
             JOINTSAMPLER.run_mcmc(POSITIONJOINT,1)
+            print("Joint Sampler")
+            print(JOINTSAMPLER.run_mcmc(POSITIONJOINT,1)[1])
             NONJOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLJ,args=())
-            NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)  
+            print("Non Joint Sampler")
+            print(NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)[1])
     
     '''
     ADD COMMENTS

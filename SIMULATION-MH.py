@@ -187,10 +187,10 @@ class TreeSequenceGeneration():
         TIMES=list(self.BRANCHLENGTH.keys()) # CREATES LIST OF CREATES
         COPY=[] # CREATES COPY ARRAY
         for TIME in TIMES: # ITERATE THROUGH BRANCHES
-            if "Clade" in str(TIME):
+            if "Clade" in str(TIME): # IF CLADE IN THE TIME NAME
                 COPY.append(TIME) # APPENDS BRANCHES THAT ARE NOT CLADE TO THE COPY
-        LENGTH=len(COPY)+2 # RETURNS MAXIMUM TIME
-        return LENGTH
+        LENGTH=len(COPY)+2 # SETS LENGTH TO BE THE MAXIMUM TIME
+        return LENGTH # RETURNS MAXIMUM TIME
 
     '''
     This function generates a mutation dictionary by calculating the 
@@ -202,63 +202,77 @@ class TreeSequenceGeneration():
         MUTATIONDICTIONARY=dict() # CREATES MUTATION DICTIONARY
         SEQUENCELENGTH=1000 # SEQUENCE LENGTH
         for TAXON in self.BRANCHLENGTH: # ITERATES THROUGH BRANCHES
-            if "Clade" not in TAXON: 
+            if "Clade" not in TAXON: # IF CLADE IS NOT IN THE TAXON NAME
                 MUTATION=int(round((SEQUENCELENGTH*self.BRANCHLENGTH[TAXON])/100)) # FINDS AMOUNT OF MUTATIONS ON EACH BRANCH
                 MUTATIONDICTIONARY[TAXON]=MUTATION # SETS THE BRANCH VALUE IN DICTIONARY TO THE MUTATION VALUE
-        return MUTATIONDICTIONARY
+        return MUTATIONDICTIONARY # RETURNS THE MUTATION DICTIONARY
 
     '''
-    ADD COMMENTS
+    This function is finding the number of mutations on the branches for all the species and is making sure the species
+    are associated with their correct times.
     '''
 
     def FindSpeciesTimes(self,BRANCHLENGTH):
-         MUTATIONS=dict()
-         TIMES=2
-         BRANCHLIST=list(BRANCHLENGTH.keys())
-         BRANCHLIST=list(reversed(BRANCHLIST))
-         [BRANCHLIST.remove(CLADE) for CLADE in BRANCHLIST[:] if "Clade" not in CLADE]
-         for CLADE in BRANCHLIST:
-            ONLYTWO=0
-            NEXTTWO=False
-            for SPECIES in BRANCHLENGTH:
-                if CLADE == SPECIES:
-                    NEXTTWO=True
-                elif NEXTTWO==True and ONLYTWO<2:
-                    if "Clade" not in SPECIES:
-                        MUTATIONS[SPECIES]=TIMES
-                    ONLYTWO=ONLYTWO+1
-            TIMES=TIMES+1
-         [MUTATIONS.update({CLADE:TIMES}) for CLADE in BRANCHLENGTH if "Clade" not in CLADE and CLADE not in list(MUTATIONS.keys())]
-         DUPLICATEARRAY=[]
-         for MUTATION in list(MUTATIONS.keys()):
-            K = [k for k,v in MUTATIONS.items() if v == MUTATIONS[MUTATION]]
-            if K not in DUPLICATEARRAY and len(K) >=2:
-                DUPLICATEARRAY.append(K)
-         for DUPLICATEINDEX in range(len(DUPLICATEARRAY)):
-            for DUPLICATEINDEXONE in range(DUPLICATEINDEX,len(DUPLICATEARRAY)):
+         MUTATIONS=dict() # CREATES A MUTATION DICTIONARY
+         TIMES=2 # SETS THE CURRENT TIME TO BE 2
+         BRANCHLIST=list(BRANCHLENGTH.keys()) # SETS THE BRANCHLIST TO BE THE LIST OF BRANCHLENGTH KEYS
+         BRANCHLIST=list(reversed(BRANCHLIST)) # REVERSED BRANCHLIST
+         [BRANCHLIST.remove(CLADE) for CLADE in BRANCHLIST[:] if "Clade" not in CLADE] # ALL BRANCHLIST VALUES THAT ARE NOT THE CLADE
+         for CLADE in BRANCHLIST: # ITERATES THROUGH BRANCHLIST
+            ONLYTWO=0 # SETS ONLYTWO TO BE 0
+            NEXTTWO=False # SETS NEXTTWO TO BE FALSE
+            for SPECIES in BRANCHLENGTH: # ITERATES THROUGH BRANCHLENGTH
+                if CLADE == SPECIES: # IF THE CLADE == SPECIES
+                    NEXTTWO=True # SETS THE NEXT TWO TO BE TRUE
+                elif NEXTTWO==True and ONLYTWO<2: # CHECKS IF NEXTTWO = TRUE AND ONLYTWO IS LESS THAN 2
+                    if "Clade" not in SPECIES: # IF CLADE IS NOT IN SPECIES
+                        MUTATIONS[SPECIES]=TIMES # IT SETS THE SPECIES IN MUTATIONS TO BE THE TIMES VALUE
+                    ONLYTWO=ONLYTWO+1 # INCREASES ONLYTWO BY ONE
+            TIMES=TIMES+1 # INCREASES TIME BY ONE
+         [MUTATIONS.update({CLADE:TIMES}) for CLADE in BRANCHLENGTH if "Clade" not in CLADE and CLADE not in list(MUTATIONS.keys())] # ADDS THE CLADE THAT IS NOT INCLUDED WITH THE MAXIMUM TIME
+         DUPLICATEARRAY=[] # DUPLICATE ARRAY
+         for MUTATION in list(MUTATIONS.keys()): # ITERATES THROUGH THE MUTATIONS DICTIONARY
+            K = [k for k,v in MUTATIONS.items() if v == MUTATIONS[MUTATION]] # FINDING ALL DUPLICATE TIMES
+            if K not in DUPLICATEARRAY and len(K) >=2: # SEES IF K IS ALREADY IN THE DUPLICATE ARRAY AND THAT THE LENGTH OF K IS GREATER THAN OR EQUAL TO 2
+                DUPLICATEARRAY.append(K) # APPENDS K TO THE DUPLICATE ARRAY
+         for DUPLICATEINDEX in range(len(DUPLICATEARRAY)): # ITERATE THROUGH DUPLICATE ARRAY
+            for DUPLICATEINDEXONE in range(DUPLICATEINDEX,len(DUPLICATEARRAY)): # ITERATE THROUGH THE VALUES OF THE DUPLICATE ARRAY OF INTEREST
                 if(MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]]>MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][0]] and 
                 BRANCHLENGTH[DUPLICATEARRAY[DUPLICATEINDEX][0]]<BRANCHLENGTH[DUPLICATEARRAY[DUPLICATEINDEXONE][0]] or
                 MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]]<MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][0]] and 
                 BRANCHLENGTH[DUPLICATEARRAY[DUPLICATEINDEX][0]]>BRANCHLENGTH[DUPLICATEARRAY[DUPLICATEINDEXONE][0]]):
-                   EXCHANGEONE=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]]
-                   EXCHANGETWO=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][1]]
-                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]]=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]]
-                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][1]]=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]]
-                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][0]]=EXCHANGEONE
-                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]]=EXCHANGETWO
-         return MUTATIONS
+                   # IF STATEMENT IS CHECKING WHICH OF TWO DUPLICATE CLADE TIMES OCCURS FIRST # EXAMPLE BELOW
+                   #print(MUTATIONS)
+                   #    -----
+                   #  / 
+                   #  \
+                   #    ------
+                   # -|
+                   #    ------
+                   #  /
+                   #  \
+                   #    ------
+                   EXCHANGEONE=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]] # SETS A VARIABLE EQUAL TO A VALUE IN THE FIRST ARRAY
+                   EXCHANGETWO=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][1]] # SETS A VARIABLE EQUAL TO A VALUE IN THE FIRST ARRAY
+                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][0]]=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]] # SWITCHES THE VALUE IN THE FIRST ARRAY WITH THE VALUE IN THE SECOND ARRAY
+                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEX][1]]=MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]] # SWITCHES THE VALUE IN THE FIRST ARRAY WITH THE VALUE IN THE SECOND ARRAY
+                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][0]]=EXCHANGEONE # GIVES THE VALUE IN THE SECOND ARRAY THE EXCHANGE VALUE
+                   MUTATIONS[DUPLICATEARRAY[DUPLICATEINDEXONE][1]]=EXCHANGETWO # GIVES THE VALUE IN THE SECOND ARRAY THE EXCHANGE VALUE
+                   #print(MUTATIONS)
+         return MUTATIONS # RETURNS THE MUTATIONS DICTIONARY
 
     '''
-    ADD COMMENTS
+    This prior function is used in the non joint and joint likelihood functions.
     '''
     
     def Prior(self,THETA):
-        if THETA < 2 and THETA > 0:
-            return 1
-        return .5
+        if THETA < 2 and THETA > 0: # PRIOR FUNCTION
+            return .5 # RETURNS .5 IF THETA IS BETWEEN THE BOUNDS
+        return .25 # RETURNS .25 IF NOT
 
     '''
-    ADD COMMENTS
+    This function returns a likelihood value. It calls the prior function based on theta. It then applied the non joint likelihood function using provided times, theta
+    and mutation dictionary. 
     '''
 
     def LLNJ(self,THETA):
@@ -267,10 +281,11 @@ class TreeSequenceGeneration():
         for TIME in range(2,self.TIMES+1):
             BETAVALUE=self.BETA(THETA[0],TIME)
             FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME])
-        return LP + FINAL_VALUE
+        return (LP + FINAL_VALUE)
 
     '''
-    ADD COMMENTS
+    This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
+    and mutation dictionary. 
     '''
 
     def LLJ(self,THETA):
@@ -279,7 +294,7 @@ class TreeSequenceGeneration():
         for TIME in range(2,self.TIMES+1):
             #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
             FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME)))
-        return LP + FINALVALUE
+        return (LP + FINALVALUE)
     
     '''
     ADD COMMENTS

@@ -10,6 +10,7 @@ import math
 from biotite.sequence.phylo import upgma
 from Bio import Phylo
 import emcee
+from sklearn.neighbors import KernelDensity
 from matplotlib import pyplot as plt
 np.random.seed(123)
 
@@ -46,7 +47,8 @@ class TreeSequenceGeneration():
         self.SPECIESDICTIONARY=dict()
         self.FINALTIMEARRAY=[]
         self.MUTATIONDICTIONARY=dict()
-
+        self.MHASTINGPROBS=dict()
+        self.TREEPROBS=dict()
     '''
     This function generates a random theta value
     based on the shape parameter.
@@ -266,56 +268,68 @@ class TreeSequenceGeneration():
     '''
     
     def Prior(self,THETA):
-        if THETA < 2 and THETA > 0: # PRIOR FUNCTION
-            return .5 # RETURNS .5 IF THETA IS BETWEEN THE BOUNDS
-        return .25 # RETURNS .25 IF NOT
+        if THETA < 1 and THETA > 0: # PRIOR FUNCTION
+            return 1 # RETURNS .5 IF THETA IS BETWEEN THE BOUNDS
+        return .5 # RETURNS .25 IF NOT
 
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the non joint likelihood function using provided times, theta
     and mutation dictionary. 
     '''
 
-    def LLNJ(self,THETA):
-        LP = self.Prior(THETA)
-        FINAL_VALUE=1
-        for TIME in range(2,self.TIMES+1):
-            BETAVALUE=self.BETA(THETA[0],TIME)
-            FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME])
-        return (LP + FINAL_VALUE)
+    def JOINTTHETA(self,THETA):
+        LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
+        FINAL_VALUE=1 # INITIALIZE FINAL VALUE TO BE 1
+        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
+            BETAVALUE=self.BETA(THETA[0],TIME) # CALCULATE THE BETA VALUE FOR THETA AND TIME
+            FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME]) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE JOINT LIKELIHOOD FUNCTION
+        return (LP + FINAL_VALUE) # RETURN FINAL VALUE + PRIOR
 
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
     and mutation dictionary. 
     '''
 
-    def LLJ(self,THETA):
-        LP = self.Prior(THETA)
-        FINALVALUE=1
-        for TIME in range(2,self.TIMES+1):
+    def JOINTTHETATIMES(self,THETA):
+        LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
+        FINALVALUE=1 # INITIALIZE FINAL VALUE TO BE 1
+        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
             #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
-            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME)))
-        return (LP + FINALVALUE)
+            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
+        return (LP + FINALVALUE) # RETURN FINAL VALUE + PRIOR
     
     '''
-    ADD COMMENTS
+    This function generates a number of values from a log norm distribution based on the number of walkers. It then runs the 
+    emcee sampler for both the joint likelihood and non joint likelihood functions. It then grabs the chain where which is then used as
+    a return value and shown in a plot.
     '''
 
     def MHastings(self,DICTIONARY):
             print("New Topology")
-            print(DICTIONARY)
-            self.MUTATIONDICTIONARY=DICTIONARY
-            NWALKER=2
-            NDIM=1
-            POSITIONJOINT = [lognorm.rvs(self.SHAPE, size=1) for i in range(NWALKER)]
-            POSITIONNONJOINT = POSITIONJOINT
-            JOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLNJ,args=())
-            JOINTSAMPLER.run_mcmc(POSITIONJOINT,1)
+            print(DICTIONARY) # PRINTS THE NEW DICTIONARY TOPOLOGY
+            self.MUTATIONDICTIONARY=DICTIONARY # SETS THE MUTATION DICTIONARY TO BE THIS NEW DICTIONARY TOPOLOGY
+            NWALKER=3 # SETS THE NUMBER OF WALKERS
+            NDIM=1 # SETS THE NUMBER OF DIMENSIONS
+            POSITIONJOINT = [lognorm.rvs(self.SHAPE, size=1) for i in range(NWALKER)] # GENERATES A BUNCH OF VALUES FROM A LOG NORM DISTRIBUTION BASED ON THE NUMBER OF WALKERS
+            POSITIONNONJOINT = POSITIONJOINT.copy() # SETS POSITIONNONJOIN TO BE EQUAL TO A COPY  OF POSITIONJOINT
+            JOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.JOINTTHETA,args=()) # CREATES A JOINT SAMPLER OBJECT
+            JOINTSAMPLER.run_mcmc(POSITIONJOINT,1) # RUNS THE JOINT SAMPLER OBJECT
+            NONJOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.JOINTTHETATIMES,args=()) # CREATES A NON JOINT SAMPLER OBJECT
+            NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1) # RUNS THE NON JOINT SAMPLER OBJECT
+            samplesone = JOINTSAMPLER.get_chain(flat=True) # SETS A VARIABLE EQUAL TO THE MATRIX CHAIN FOR THE JOINT SAMPLER
+            samplestwo = NONJOINTSAMPLER.get_chain(flat=True) # SETS A VARIABLE EQUAL TO THE MATRIX CHAIN FOR THE NON JOINT SAMPLER
             print("Joint Sampler")
-            print(JOINTSAMPLER.run_mcmc(POSITIONJOINT,1)[1])
-            NONJOINTSAMPLER = emcee.EnsembleSampler(NWALKER,NDIM,self.LLJ,args=())
+            print(samplesone[:, 0])
             print("Non Joint Sampler")
-            print(NONJOINTSAMPLER.run_mcmc(POSITIONNONJOINT,1)[1])
-    
+            print(samplestwo[:, 0])
+            plt.hist(samplesone[:, 0], 100, color="k", histtype="step")
+            plt.hist(samplestwo[:, 0], 100, color="m", histtype="step")
+            plt.xlabel(r"$\theta_1$")
+            plt.ylabel(r"$p(\theta_1)$")
+            plt.gca().set_yticks([])
+            #plt.show()
+            return samplesone[:, 0],samplestwo[:, 0] # RETURNS THE CHAINS FOR THE JOINT AND NON JOINT SAMPLER
+   
     '''
     ADD COMMENTS
     '''
@@ -387,9 +401,9 @@ class TreeSequenceGeneration():
             if "Clade" not in TAXON:
                 CALLBACKS[0].append(TAXON)
         CALLBACKS.append(CALLBACKS[0][2:4]+CALLBACKS[0][0:2]) # NEED TO DESIGN A METHOD THAT GENERATES THESE COMBINATIONS
-        for CALLBACK in CALLBACKS:
+        for CALLBACKINDEX in range(len(CALLBACKS)):
             self.SPECIESDICTIONARY=dict()
-            self.callBacks(CALLBACK,self.MUTATIONS,self.SPECIETIMES)
+            self.callBacks(CALLBACKS[CALLBACKINDEX],self.MUTATIONS,self.SPECIETIMES)
             KEYS=list(self.SPECIESDICTIONARY.keys())
             TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+2), [0])
             self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY)
@@ -398,9 +412,34 @@ class TreeSequenceGeneration():
                 DICTIONARY[self.TIMES] = [DICTIONARY[self.TIMES][0] + DICTIONARY[self.TIMES+1][0]]
                 DICTIONARY[self.TIMES+1] = [0]
             self.FINALTIMEARRAY = [i for n, i in enumerate(self.FINALTIMEARRAY) if i not in self.FINALTIMEARRAY[n + 1:]]
-            for DICTIONARY in self.FINALTIMEARRAY:
-               self.MHastings(DICTIONARY)
+            for DICTIONARYINDEX in range(len(self.FINALTIMEARRAY)):
+               self.MHASTINGPROBS[DICTIONARYINDEX] = self.MHastings(self.FINALTIMEARRAY[DICTIONARYINDEX])
+            self.TREEPROBS[CALLBACKINDEX]=dict(self.MHASTINGPROBS.copy())
+            self.MHASTINGPROBS=dict()
 
+
+
+
+
+
+    def CombineSamples(self):
+        JOINTTOTAL=[]
+        NONJOINTTOTAL=[]
+        for POSSIBLETOPOLOGIES in self.TREEPROBS.keys():
+            for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys():
+                JOINTTOTAL += self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].tolist()
+                NONJOINTTOTAL+= self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].tolist()  
+        JOINTTOTAL.reshape(-1, 1)
+        kde = KernelDensity(bandwidth=1.0, kernel='gaussian')
+        kde.fit(JOINTTOTAL)
+        logprob = kde.score_samples(JOINTTOTAL) 
+        plt.fill_between(JOINTTOTAL, np.exp(logprob), alpha=0.5)
+        plt.ylim(-0.02, 0.22)
+        plt.show()
+        print(logprob)
+        print(JOINTTOTAL)
+
+        #print(self.TREEPROBS)
 '''
 Calls the TreeSequenceGeneration class and runs 
 the GenerateTheta, SimulateTree, SimulateSequence,
@@ -416,6 +455,7 @@ if __name__ == "__main__":
     TSG.GenerateTreeForSequence()
     TSG.ReturnBranchLengths()
     TSG.MHastingsLoop()
+    TSG.CombineSamples()
 
 
 

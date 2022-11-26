@@ -308,7 +308,7 @@ class TreeSequenceGeneration():
             print("New Topology")
             print(DICTIONARY) # PRINTS THE NEW DICTIONARY TOPOLOGY
             self.MUTATIONDICTIONARY=DICTIONARY # SETS THE MUTATION DICTIONARY TO BE THIS NEW DICTIONARY TOPOLOGY
-            NWALKER=3 # SETS THE NUMBER OF WALKERS
+            NWALKER=3000 # SETS THE NUMBER OF WALKERS
             NDIM=1 # SETS THE NUMBER OF DIMENSIONS
             POSITIONJOINT = [lognorm.rvs(self.SHAPE, size=1) for i in range(NWALKER)] # GENERATES A BUNCH OF VALUES FROM A LOG NORM DISTRIBUTION BASED ON THE NUMBER OF WALKERS
             POSITIONNONJOINT = POSITIONJOINT.copy() # SETS POSITIONNONJOIN TO BE EQUAL TO A COPY  OF POSITIONJOINT
@@ -322,11 +322,11 @@ class TreeSequenceGeneration():
             print(samplesone[:, 0])
             print("Non Joint Sampler")
             print(samplestwo[:, 0])
-            plt.hist(samplesone[:, 0], 100, color="k", histtype="step")
-            plt.hist(samplestwo[:, 0], 100, color="m", histtype="step")
-            plt.xlabel(r"$\theta_1$")
-            plt.ylabel(r"$p(\theta_1)$")
-            plt.gca().set_yticks([])
+            #plt.hist(samplesone[:, 0], 100, color="k", histtype="step")
+            #plt.hist(samplestwo[:, 0], 100, color="m", histtype="step")
+            #plt.xlabel(r"$\theta_1$")
+            #plt.ylabel(r"$p(\theta_1)$")
+            #plt.gca().set_yticks([])
             #plt.show()
             return samplesone[:, 0],samplestwo[:, 0] # RETURNS THE CHAINS FOR THE JOINT AND NON JOINT SAMPLER
    
@@ -417,29 +417,37 @@ class TreeSequenceGeneration():
             self.TREEPROBS[CALLBACKINDEX]=dict(self.MHASTINGPROBS.copy())
             self.MHASTINGPROBS=dict()
 
-
-
-
-
+    '''
+    ADD COMMENTS
+    '''
 
     def CombineSamples(self):
-        JOINTTOTAL=[]
-        NONJOINTTOTAL=[]
+        JOINTTOTAL=np.zeros(shape=(1, 3000))
+        NONJOINTTOTAL=np.zeros(shape=(1, 3000))
         for POSSIBLETOPOLOGIES in self.TREEPROBS.keys():
             for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys():
-                JOINTTOTAL += self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].tolist()
-                NONJOINTTOTAL+= self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].tolist()  
-        JOINTTOTAL.reshape(-1, 1)
-        kde = KernelDensity(bandwidth=1.0, kernel='gaussian')
-        kde.fit(JOINTTOTAL)
-        logprob = kde.score_samples(JOINTTOTAL) 
-        plt.fill_between(JOINTTOTAL, np.exp(logprob), alpha=0.5)
-        plt.ylim(-0.02, 0.22)
+                JOINTTOTAL+=np.add(JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].tolist())
+                NONJOINTTOTAL+=np.add(NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].tolist())
+        NJSET=np.unique(NONJOINTTOTAL)
+        JSET=np.unique(JOINTTOTAL)
+        plt.hist(NJSET,bins=15, alpha=0.7, label='NJSET',density=True)
+        plt.hist(JSET,bins=15, alpha=0.7, label='JSET',density=True)
+        plt.legend(loc='upper right')
         plt.show()
-        print(logprob)
-        print(JOINTTOTAL)
+        KDENJ = KernelDensity(bandwidth=.1, kernel='gaussian')
+        KDENJ.fit(JSET.reshape(-1, 1))
+        KDEJ = KernelDensity(bandwidth=.1, kernel='gaussian')
+        KDEJ.fit(NJSET.reshape(-1, 1))
+        x_d = np.linspace(-.5, .5, 500)
+        LOGPROBNJ = KDENJ.score_samples(x_d.reshape(-1, 1))
+        LOGPROBJ = KDEJ.score_samples(x_d.reshape(-1, 1))
+        plt.plot(LOGPROBNJ)
+        plt.plot(LOGPROBJ)
+        plt.show()
 
-        #print(self.TREEPROBS)
+
+        
+
 '''
 Calls the TreeSequenceGeneration class and runs 
 the GenerateTheta, SimulateTree, SimulateSequence,

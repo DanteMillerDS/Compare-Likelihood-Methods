@@ -13,7 +13,7 @@ import emcee
 from sklearn.neighbors import KernelDensity
 from matplotlib import pyplot as plt
 np.random.seed(123)
-
+import seaborn as sns
 
 
 class TreeSequenceGeneration():
@@ -426,26 +426,37 @@ class TreeSequenceGeneration():
         NONJOINTTOTAL=np.zeros(shape=(1, 3000))
         for POSSIBLETOPOLOGIES in self.TREEPROBS.keys():
             for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys():
-                JOINTTOTAL+=np.add(JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].tolist())
-                NONJOINTTOTAL+=np.add(NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].tolist())
+                JOINTTOTAL=np.add(JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].reshape(1,3000))
+                NONJOINTTOTAL=np.add(NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(1,3000))
         NJSET=np.unique(NONJOINTTOTAL)
         JSET=np.unique(JOINTTOTAL)
+        print("Non Joint Sampler Unique Sum")
+        print(NJSET)
+        print("Joint Sampler Unique Sum")
+        print(JSET)
         plt.hist(NJSET,bins=15, alpha=0.7, label='NJSET',density=True)
         plt.hist(JSET,bins=15, alpha=0.7, label='JSET',density=True)
         plt.legend(loc='upper right')
         plt.show()
-        KDENJ = KernelDensity(bandwidth=.1, kernel='gaussian')
-        KDENJ.fit(JSET.reshape(-1, 1))
-        KDEJ = KernelDensity(bandwidth=.1, kernel='gaussian')
-        KDEJ.fit(NJSET.reshape(-1, 1))
-        x_d = np.linspace(-.5, .5, 500)
-        LOGPROBNJ = KDENJ.score_samples(x_d.reshape(-1, 1))
-        LOGPROBJ = KDEJ.score_samples(x_d.reshape(-1, 1))
-        plt.plot(LOGPROBNJ)
-        plt.plot(LOGPROBJ)
+
+        # WORK IN  PROGRESS
+        KDENJ = KernelDensity(bandwidth=1, kernel='gaussian')
+        KDENJ.fit(NJSET.reshape(-1, 1))
+        KDEJ = KernelDensity(bandwidth=1, kernel='gaussian')
+        KDEJ.fit(JSET.reshape(-1, 1))
+        XNJ = np.linspace(np.min(NJSET.reshape(-1, 1)), np.max(NJSET.reshape(-1, 1)))
+        XJ = np.linspace(np.min(JSET.reshape(-1, 1)), np.max(JSET.reshape(-1, 1)))
+        LOGPROBNJ = np.exp(KDENJ.score_samples(XNJ.reshape(-1,1)))
+        LOGPROBJ = np.exp(KDENJ.score_samples(XJ.reshape(-1,1)))
+    
+        sns.kdeplot(JSET.reshape(-1,1), fill=True,label='JSET')
+        plt.plot(XJ.reshape(-1,1), LOGPROBJ.reshape(-1,1))
+        plt.legend()
         plt.show()
-
-
+        sns.kdeplot(NJSET.reshape(-1,1), fill=True,label='NJSET')
+        plt.plot(XNJ.reshape(-1,1), LOGPROBNJ.reshape(-1,1))
+        plt.legend()
+        plt.show()
         
 
 '''

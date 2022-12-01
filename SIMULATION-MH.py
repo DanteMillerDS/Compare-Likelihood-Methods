@@ -26,7 +26,7 @@ class TreeSequenceGeneration():
     likelihood and non joint density likelihood functions
     '''
 
-    def __init__(self,SHAPE)->None: 
+    def __init__(self,SHAPE,WALKER)->None: 
         self.SHAPE=SHAPE # PASS A SHAPE WHEN CREATING OBJECT
         # VARIABLES BELOW ARE USED IN THE OTHER FUNCTIONS FOR THE CLASS
         self.THETA=""
@@ -49,6 +49,7 @@ class TreeSequenceGeneration():
         self.MUTATIONDICTIONARY=dict()
         self.MHASTINGPROBS=dict()
         self.TREEPROBS=dict()
+        self.WALKERS=WALKER
     '''
     This function generates a random theta value
     based on the shape parameter.
@@ -308,7 +309,7 @@ class TreeSequenceGeneration():
             print("New Topology")
             print(DICTIONARY) # PRINTS THE NEW DICTIONARY TOPOLOGY
             self.MUTATIONDICTIONARY=DICTIONARY # SETS THE MUTATION DICTIONARY TO BE THIS NEW DICTIONARY TOPOLOGY
-            NWALKER=3000 # SETS THE NUMBER OF WALKERS
+            NWALKER=self.WALKERS # SETS THE NUMBER OF WALKERS
             NDIM=1 # SETS THE NUMBER OF DIMENSIONS
             POSITIONJOINT = [lognorm.rvs(self.SHAPE, size=1) for i in range(NWALKER)] # GENERATES A BUNCH OF VALUES FROM A LOG NORM DISTRIBUTION BASED ON THE NUMBER OF WALKERS
             POSITIONNONJOINT = POSITIONJOINT.copy() # SETS POSITIONNONJOIN TO BE EQUAL TO A COPY  OF POSITIONJOINT
@@ -407,7 +408,6 @@ class TreeSequenceGeneration():
             KEYS=list(self.SPECIESDICTIONARY.keys())
             TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+2), [0])
             self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY)
-            #print(self.FINALTIMEARRAY)
             for DICTIONARY in self.FINALTIMEARRAY:
                 DICTIONARY[self.TIMES] = [DICTIONARY[self.TIMES][0] + DICTIONARY[self.TIMES+1][0]]
                 DICTIONARY[self.TIMES+1] = [0]
@@ -422,12 +422,12 @@ class TreeSequenceGeneration():
     '''
 
     def CombineSamples(self):
-        JOINTTOTAL=np.zeros(shape=(1, 3000))
-        NONJOINTTOTAL=np.zeros(shape=(1, 3000))
+        JOINTTOTAL=np.zeros(shape=(0, 0))
+        NONJOINTTOTAL=np.zeros(shape=(0,0))
         for POSSIBLETOPOLOGIES in self.TREEPROBS.keys():
             for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys():
-                JOINTTOTAL=np.add(JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].reshape(1,3000))
-                NONJOINTTOTAL=np.add(NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(1,3000))
+                JOINTTOTAL=np.concatenate((JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].reshape(-1,self.WALKERS)),axis=None)
+                NONJOINTTOTAL=np.concatenate((NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(-1,self.WALKERS)),axis=None)
         NJSET=np.unique(NONJOINTTOTAL)
         JSET=np.unique(JOINTTOTAL)
         print("Non Joint Sampler Unique Sum")
@@ -437,9 +437,8 @@ class TreeSequenceGeneration():
         plt.hist(NJSET,bins=15, alpha=0.7, label='NJSET',density=True)
         plt.hist(JSET,bins=15, alpha=0.7, label='JSET',density=True)
         plt.legend(loc='upper right')
+        plt.xlim([-25, 25])
         plt.show()
-
-        # WORK IN  PROGRESS
         KDENJ = KernelDensity(bandwidth=1, kernel='gaussian')
         KDENJ.fit(NJSET.reshape(-1, 1))
         KDEJ = KernelDensity(bandwidth=1, kernel='gaussian')
@@ -447,15 +446,16 @@ class TreeSequenceGeneration():
         XNJ = np.linspace(np.min(NJSET.reshape(-1, 1)), np.max(NJSET.reshape(-1, 1)))
         XJ = np.linspace(np.min(JSET.reshape(-1, 1)), np.max(JSET.reshape(-1, 1)))
         LOGPROBNJ = np.exp(KDENJ.score_samples(XNJ.reshape(-1,1)))
-        LOGPROBJ = np.exp(KDENJ.score_samples(XJ.reshape(-1,1)))
-    
-        sns.kdeplot(JSET.reshape(-1,1), fill=True,label='JSET')
+        LOGPROBJ = np.exp(KDEJ.score_samples(XJ.reshape(-1,1)))
+        sns.kdeplot(JSET.reshape(-1,1), fill=True,label='JOINT LIKELIHOOD THETA')
         plt.plot(XJ.reshape(-1,1), LOGPROBJ.reshape(-1,1))
         plt.legend()
+        plt.xlim([-25, 25])
         plt.show()
-        sns.kdeplot(NJSET.reshape(-1,1), fill=True,label='NJSET')
+        sns.kdeplot(NJSET.reshape(-1,1), fill=True,label='NON JOINT LIKELIHOOD THETA')
         plt.plot(XNJ.reshape(-1,1), LOGPROBNJ.reshape(-1,1))
         plt.legend()
+        plt.xlim([-25, 25])
         plt.show()
         
 
@@ -467,7 +467,7 @@ MHastingsLoop functions.
 '''
 
 if __name__ == "__main__":
-    TSG=TreeSequenceGeneration(1)
+    TSG=TreeSequenceGeneration(1,5000)
     TSG.GenerateTheta()
     TSG.SimulateTree()
     TSG.SimulateSequence()

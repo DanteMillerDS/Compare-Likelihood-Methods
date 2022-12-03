@@ -332,21 +332,23 @@ class TreeSequenceGeneration():
             return samplesone[:, 0],samplestwo[:, 0] # RETURNS THE CHAINS FOR THE JOINT AND NON JOINT SAMPLER
    
     '''
-    ADD COMMENTS
+    This function is a recursive function that is iterating through the carry mutations and placing them into the passdictionary at
+    a time and determining the number of mutations that should be passed on to the next time. There is not a result but it is appending each different
+    pass dictionary into the species dictionary
     '''
     
     def callBackMutation(self,TIME,CURRENTTIME,SPECIE,PASSDICTIONARY,CARRY,MUTATION):
         if CURRENTTIME-1<TIME: # CURRENT TIME MUST BE LESS THAN THE MAXIMUM TIME
-            for TIMEPLACEMENT in range(1, CARRY+2): 
-                PASSDICTIONARY[CURRENTTIME] = TIMEPLACEMENT-1
-                CARRYOVER=CARRY-PASSDICTIONARY[CURRENTTIME]
+            for TIMEPLACEMENT in range(1, CARRY+2): # ITERATE THROUGH THROUGH CARRY MUTATIONS
+                PASSDICTIONARY[CURRENTTIME] = TIMEPLACEMENT-1 # SETS THE MUTATION NUMBER AT CURRENT TIME
+                CARRYOVER=CARRY-PASSDICTIONARY[CURRENTTIME] # CREATES A CARRYOVER VARIABLE BASED ON THE OVERALL MUTATIONS SUBTRACTED BY THE MUTATIONS FOR THE FIRST TIME
                 self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION) # CALLS THE MUTATION FUNCTION FOR THE NEXT TIME
-        elif CURRENTTIME-1==TIME:
-            PASSDICTIONARY[CURRENTTIME] = CARRY
-            self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy())
+        elif CURRENTTIME-1==TIME: # IF CURRENT TIME - 1 IS EQUALED TO TIME
+            PASSDICTIONARY[CURRENTTIME] = CARRY # SETS THE TIME IN THE DICTIONARY TO BE THE MUTATION PLACES AT THIS TIME
+            self.SPECIESDICTIONARY[SPECIE].append(PASSDICTIONARY.copy()) # APPENDS DICTIONARY INTO SPECIES DICTIONARY
     
     '''
-    ADD COMMENTS
+    This is a recursive function that is determining the mutation placements for all the species. It calls the CallBackMutations function.
     '''
 
     def callBacks(self,CALLBACKS,MUTATIONS,SPECIETIMES):
@@ -358,103 +360,112 @@ class TreeSequenceGeneration():
             CURRENTTIME=2 # DEFINES THE CURRENT TIME TO BE 2
             self.SPECIESDICTIONARY[SPECIE]=[] # ADDS AN ARRAY IN THE SPECIES DICTIONARY FOR THE SELECTED SPECIE
             PASSDICTIONARY=dict() # DEFINES A NEW DICTIONARY
-            for FIRSTTIME in range(1,int(MUTATION)+2): # ITERATES THROUGH THE MUTATION PLACEMENT FOR THE FIRST TIME
-                PASSDICTIONARY[CURRENTTIME]=FIRSTTIME-1 # PLACES THE NUMBER OF MUTATIONS IN THE DICTIONARY FOR THE SPECIES
-                CARRYOVER=MUTATION-(PASSDICTIONARY[CURRENTTIME])
-                self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION)
+            for FIRSTTIME in range(1,int(MUTATION)+2): # ITERATES THROUGH THE MUTATION PLACEMENT FOR THE OVERALL SPECIES
+                PASSDICTIONARY[CURRENTTIME]=FIRSTTIME-1 # PLACES THE NUMBER OF MUTATIONS IN THE DICTIONARY FOR THE FIRST TIME
+                CARRYOVER=MUTATION-(PASSDICTIONARY[CURRENTTIME]) # CREATES A CARRYOVER VARIABLE BASED ON THE OVERALL MUTATIONS SUBTRACTED BY THE MUTATIONS FOR THE FIRST TIME
+                self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION) # CALLS THE CALL BACK MUTATION FUNCTION USING PREVIOUS DEFINED VARIABLES
             if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY EMPTY
-                return self.callBacks(CALLBACKS,MUTATIONS,SPECIETIMES) # RECALLS ITSELF
+                return self.callBacks(CALLBACKS,MUTATIONS,SPECIETIMES) # RECALLS ITSELF USING A DIFFERENT SPECIES
 
     '''
-    ADD COMMENTS
+    This function is recursive function that is creating an array based on the combinations of the mutation placements for all the species. M=
     '''
 
     def IterateThroughIntervalDictionary(self,INTERVALDICTIONARY,KEYS,INDEX,TIMEDICTIONARY):
-        if INDEX < len(KEYS):
-            ARRAYS=INTERVALDICTIONARY[KEYS[INDEX]]
-            for ARRAY in ARRAYS:
-                COPY=TIMEDICTIONARY.copy()
-                for MINIARRAY in list(reversed(ARRAY)):
+        if INDEX < len(KEYS): # ITERATES THROUGH THE KEYS 
+            ARRAYS=INTERVALDICTIONARY[KEYS[INDEX]] # SETS THE ARRAYS VARIABLE TO THE DICTIONARY FOR ONE OF THE SPECIES
+            for ARRAY in ARRAYS: # ITERATE THROUGH ARRAYS
+                COPY=TIMEDICTIONARY.copy() # CREATES A TIMEDICTIONARY COPY
+                for MINIARRAY in list(reversed(ARRAY)): # ITERATES THROUGH THE DICTIONARY
                     #if INDEX + 1 < len(KEYS)-1:
-                        VALUE=sum(COPY[MINIARRAY])
-                        COPY[MINIARRAY] = [VALUE + ARRAY[MINIARRAY]]#[ARRAY[MINIARRAY]]
-                self.IterateThroughIntervalDictionary(INTERVALDICTIONARY,KEYS,INDEX+1,COPY) 
+                        VALUE=sum(COPY[MINIARRAY]) # TAKES THE SUM FOR THE COPY DICTIONARY AT A KEY -- TIME
+                        COPY[MINIARRAY] = [VALUE + ARRAY[MINIARRAY]] #SETS THE COPY AT A GIVEN TIME TO BE EQUAL TO THE SUM VALUE AT TIME + CURRENT VALUE
+                self.IterateThroughIntervalDictionary(INTERVALDICTIONARY,KEYS,INDEX+1,COPY)  # RECALLS ITSELF USING A INDEX+1 AND COPY
         else:
             #print(sum(list(self.MUTATIONS.values())))
             #print(TIMEDICTIONARY)
             #print(self.MUTATIONS)
-            SUMTIMEMUTATIONS=sum(TIMEDICTIONARY[MUTATION][0] for MUTATION in TIMEDICTIONARY)
+            SUMTIMEMUTATIONS=sum(TIMEDICTIONARY[MUTATION][0] for MUTATION in TIMEDICTIONARY) # ITERATES THROUGH THE TIMEDICTIONARY AND ATTAINS THE SUM MUTATION VALUE
             #print(SUMTIMEMUTATIONS)
             #print(sum(self.MUTATIONS.values()))
-            if TIMEDICTIONARY not in self.FINALTIMEARRAY and SUMTIMEMUTATIONS==sum(self.MUTATIONS.values()):
-                self.FINALTIMEARRAY.append(TIMEDICTIONARY.copy())
+            if TIMEDICTIONARY not in self.FINALTIMEARRAY and SUMTIMEMUTATIONS==sum(self.MUTATIONS.values()): # IF STATEMENT CHECKING IF TIMEDICTIONARY IS NOT IN THE FINAL ARRAY AND SUMTIMEMUTATIONS IS EQUAL TO SUM OF THE MUTATIONS
+                self.FINALTIMEARRAY.append(TIMEDICTIONARY.copy()) # APPENDS INTO FINAL ARRAY
   
     '''
-    ADD COMMENTS
+    This function runs a good majority of the functions written earlier. It then calls Metropolis Hastings
+    on all the mutation topologies are different topologies  -- we consider the swapping of inner and outer clades
     '''  
 
     def MHastingsLoop(self):
-        self.TIMES=self.ReturnTimes()
-        self.MUTATIONS=self.FindMutations()
-        self.SPECIETIMES=self.FindSpeciesTimes(self.BRANCHLENGTH)
-        CALLBACKS=[[]]
+        self.TIMES=self.ReturnTimes() # RETURNS TIME
+        self.MUTATIONS=self.FindMutations() # RETURNS MUTATIONS
+        self.SPECIETIMES=self.FindSpeciesTimes(self.BRANCHLENGTH) # RETURNS SPECIES TIMES
+        CALLBACKS=[[]] # CREATES A CALLBACK ARRAY
         for TAXON in self.BRANCHLENGTH:
-            if "Clade" not in TAXON:
-                CALLBACKS[0].append(TAXON)
-        CALLBACKS.append(CALLBACKS[0][2:4]+CALLBACKS[0][0:2]) # NEED TO DESIGN A METHOD THAT GENERATES THESE COMBINATIONS
-        for CALLBACKINDEX in range(len(CALLBACKS)):
-            self.SPECIESDICTIONARY=dict()
-            self.callBacks(CALLBACKS[CALLBACKINDEX],self.MUTATIONS,self.SPECIETIMES)
-            KEYS=list(self.SPECIESDICTIONARY.keys())
-            TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+2), [0])
-            self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY)
-            for DICTIONARY in self.FINALTIMEARRAY:
-                DICTIONARY[self.TIMES] = [DICTIONARY[self.TIMES][0] + DICTIONARY[self.TIMES+1][0]]
-                DICTIONARY[self.TIMES+1] = [0]
-            self.FINALTIMEARRAY = [i for n, i in enumerate(self.FINALTIMEARRAY) if i not in self.FINALTIMEARRAY[n + 1:]]
+            if "Clade" not in TAXON: # WORK IN PROGRESS
+                CALLBACKS[0].append(TAXON) # WORK IN PROGRESS
+        CALLBACKS.append(CALLBACKS[0][2:4]+CALLBACKS[0][0:2]) # THE IDEA OF THIS LINE AND THE LINE ABOVE IS THAT IT SHOULD BE APPENDING ALL 
+        # POSSIBLE TOPOLOGIES? SWITCHING THE INNER AND OUTER CLADES? STILL A WORK IN PROGRESS BUT RIGHT NOW THIS FUNCTION IS ONLY TESTING ON
+        # TWO POSSIBLE TOPOLOGIES INNER AND OUT CLADES BEING SWAPPED
+        for CALLBACKINDEX in range(len(CALLBACKS)): # ITERATES THROUGH CALLBACK
+            self.SPECIESDICTIONARY=dict() # CREATES SPECIES DICTIONARY
+            self.callBacks(CALLBACKS[CALLBACKINDEX],self.MUTATIONS,self.SPECIETIMES) # CALLS CALL BACK FUNCTION
+            KEYS=list(self.SPECIESDICTIONARY.keys()) # CREATES A LIST OF THE SPECIES DICTIONARY KEYS
+            TIMEDICTIONARY=dict.fromkeys(range(2,self.TIMES+2), [0]) # CREATES A DICTIONARY USING TIMES
+            self.IterateThroughIntervalDictionary(self.SPECIESDICTIONARY,KEYS,0,TIMEDICTIONARY) # CALLS ITERATE THROUGH INTERVAL DICTIONARY FUNCTION
+            for DICTIONARY in self.FINALTIMEARRAY: # ITERATES THROUGH FINALTIMEARRAY
+                DICTIONARY[self.TIMES] = [DICTIONARY[self.TIMES][0] + DICTIONARY[self.TIMES+1][0]] # SETS DICTIONARY AT TIME TO BE EQUAL AT CURRENT TIME + 1
+                DICTIONARY[self.TIMES+1] = [0] # SETS THE LAST TIME TO BE 0
+                # ABOVE IS DONE BECAUSE OF SOME ISSUE WHERE YOU END UP WITH ONE MORE TIME THEN NECESSARY
+                # EXAMPLE IF TIMES ARE 4
+                # 2 3 4 ARE THE TIME INTERVALS YOU SHOULD END UP WITH 2 3 4 5 THUS WE ARE GETTING RID OF THE 5 
+            self.FINALTIMEARRAY = [i for n, i in enumerate(self.FINALTIMEARRAY) if i not in self.FINALTIMEARRAY[n + 1:]] # CREATES FINAL TIME ARRAY # GETTING RID OF DUPLICATES
+            # ITERATE THROUGH FINAL TIME ARRAY
             for DICTIONARYINDEX in range(len(self.FINALTIMEARRAY)):
-               self.MHASTINGPROBS[DICTIONARYINDEX] = self.MHastings(self.FINALTIMEARRAY[DICTIONARYINDEX])
-            self.TREEPROBS[CALLBACKINDEX]=dict(self.MHASTINGPROBS.copy())
-            self.MHASTINGPROBS=dict()
+               self.MHASTINGPROBS[DICTIONARYINDEX] = self.MHastings(self.FINALTIMEARRAY[DICTIONARYINDEX]) # CALLS METROPOLIS HASTINGS AND APPENDS RESULTS TO A DICTIONARY
+            self.TREEPROBS[CALLBACKINDEX]=dict(self.MHASTINGPROBS.copy()) # APPENDS THE MHASTINGS DICTIONARY TO A NEW DICTIONARY AT CALLBACKINDEX
+            self.MHASTINGPROBS=dict() # RESETS MHASTINGPROB DICTIONARY
 
     '''
-    ADD COMMENTS
+    This function returns the distribution of the theta values produced by metropolis hastings.
     '''
 
     def CombineSamples(self):
-        JOINTTOTAL=np.zeros(shape=(0, 0))
-        NONJOINTTOTAL=np.zeros(shape=(0,0))
-        for POSSIBLETOPOLOGIES in self.TREEPROBS.keys():
-            for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys():
-                JOINTTOTAL=np.concatenate((JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].reshape(-1,self.WALKERS)),axis=None)
-                NONJOINTTOTAL=np.concatenate((NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(-1,self.WALKERS)),axis=None)
-        NJSET=np.unique(NONJOINTTOTAL)
-        JSET=np.unique(JOINTTOTAL)
-        print("Non Joint Sampler Unique Sum")
-        print(NJSET)
-        print("Joint Sampler Unique Sum")
-        print(JSET)
-        plt.hist(NJSET,bins=15, alpha=0.7, label='NJSET',density=True)
-        plt.hist(JSET,bins=15, alpha=0.7, label='JSET',density=True)
+        JOINTTOTAL=np.zeros(shape=(0, 0)) # CREATES AN EMPTY NP ARRAY
+        NONJOINTTOTAL=np.zeros(shape=(0,0)) # CREATES AN EMPTY NP ARRAY
+        for POSSIBLETOPOLOGIES in self.TREEPROBS.keys(): # ITERATE THROUGH THE TREE TOPOLOGIES 
+            for POSSIBLEMUTATIONTOPOLOGIES in self.TREEPROBS[POSSIBLETOPOLOGIES].keys(): # ITERATES THROUGH THE MUTATION TOPOLOGIES
+                JOINTTOTAL=np.concatenate((JOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][0].reshape(-1,self.WALKERS)),axis=None) # CONCATS THE JOINT LIKELIHOOD THETAS TO AN A JOINT LIKELIHOOD THETA ARRAY
+                NONJOINTTOTAL=np.concatenate((NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(-1,self.WALKERS)),axis=None) # CONCATS THE NON JOINT LIKELIHOOD THETAS TO AN A JOINT LIKELIHOOD THETA ARRAY
+        NJSET=np.unique(NONJOINTTOTAL) # TAKES ALL UNIQUE THETA VALUES FOR NON JOINT LIKELIHOOD
+        JSET=np.unique(JOINTTOTAL) # TAKES ALL UNIQUE THETA VALUES FOR JOINT LIKELIHOOD
+        print("Non Joint Sampler Unique Sum") # PRINT STATEMENT
+        print(NJSET) # PRINT STATEMENT
+        print("Joint Sampler Unique Sum") # PRINT STATEMENT
+        print(JSET) # PRINT STATEMENT
+        #plt.hist(NJSET,bins=15, alpha=0.4, label='NON JOINT LIKELIHOOD THETA DISTRIBUTION',density=True) # PLOT
+        #plt.hist(JSET,bins=15, alpha=0.4, label='JOINT LIKELIHOOD THETA DISTRIBUTION',density=True) # PLOT
+        #plt.legend(loc='upper right') # PLOT
+        #plt.xlim([-25, 25]) # PLOT
+        #plt.show() # PLOT
+        #KDENJ = KernelDensity(bandwidth=1, kernel='gaussian')
+        #KDENJ.fit(NJSET.reshape(-1, 1))
+        #KDEJ = KernelDensity(bandwidth=1, kernel='gaussian')
+        #KDEJ.fit(JSET.reshape(-1, 1))
+        #XNJ = np.linspace(np.min(NJSET.reshape(-1, 1)), np.max(NJSET.reshape(-1, 1)))
+        #XJ = np.linspace(np.min(JSET.reshape(-1, 1)), np.max(JSET.reshape(-1, 1)))
+        #LOGPROBNJ = np.exp(KDENJ.score_samples(XNJ.reshape(-1,1)))
+        #LOGPROBJ = np.exp(KDEJ.score_samples(XJ.reshape(-1,1)))
+        sns.kdeplot(JSET.reshape(-1,1),label='JOINT LIKELIHOOD THETA')
+        #plt.plot(XJ.reshape(-1,1), LOGPROBJ.reshape(-1,1))
+        #plt.legend()
+        #plt.xlim([-25, 25])
+        #plt.show()
+        sns.kdeplot(NJSET.reshape(-1,1),label='NON JOINT LIKELIHOOD THETA',color=(""))
+        plt.gca().get_lines()[0].set_color("red")
+        plt.gca().get_lines()[1].set_color("blue")
+        #plt.plot(XNJ.reshape(-1,1), LOGPROBNJ.reshape(-1,1))
         plt.legend(loc='upper right')
-        plt.xlim([-25, 25])
-        plt.show()
-        KDENJ = KernelDensity(bandwidth=1, kernel='gaussian')
-        KDENJ.fit(NJSET.reshape(-1, 1))
-        KDEJ = KernelDensity(bandwidth=1, kernel='gaussian')
-        KDEJ.fit(JSET.reshape(-1, 1))
-        XNJ = np.linspace(np.min(NJSET.reshape(-1, 1)), np.max(NJSET.reshape(-1, 1)))
-        XJ = np.linspace(np.min(JSET.reshape(-1, 1)), np.max(JSET.reshape(-1, 1)))
-        LOGPROBNJ = np.exp(KDENJ.score_samples(XNJ.reshape(-1,1)))
-        LOGPROBJ = np.exp(KDEJ.score_samples(XJ.reshape(-1,1)))
-        sns.kdeplot(JSET.reshape(-1,1), fill=True,label='JOINT LIKELIHOOD THETA')
-        plt.plot(XJ.reshape(-1,1), LOGPROBJ.reshape(-1,1))
-        plt.legend()
-        plt.xlim([-25, 25])
-        plt.show()
-        sns.kdeplot(NJSET.reshape(-1,1), fill=True,label='NON JOINT LIKELIHOOD THETA')
-        plt.plot(XNJ.reshape(-1,1), LOGPROBNJ.reshape(-1,1))
-        plt.legend()
         plt.xlim([-25, 25])
         plt.show()
         

@@ -13,6 +13,8 @@ from sklearn.neighbors import KernelDensity
 from matplotlib import pyplot as plt
 np.random.seed(123)
 import seaborn as sns
+import math
+from mpmath import mp
 
 
 class TreeSequenceGeneration():
@@ -176,9 +178,19 @@ class TreeSequenceGeneration():
     This function return the result of the coalescent time function for
     a provided theta and time value.
     '''
-
-    def COALESCENTTIME(self,THETA,TIME):
-        return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
+    def TOTALCOALESCENTRATE(self,CURRENTTIME,MAXTIME):
+        SUM=0
+        for TIME in range(2,CURRENTTIME+1):
+            SUM=SUM+(-MAXTIME*(MAXTIME-1)*TIME)
+            #SUM=SUM+(-NUMBER OF LINEAGES*(NUMBER OF LINEAGES-1)*LENGTH T)
+            #SUM=SUM+(TIME*TIME*(TIME-1))
+        return SUM
+   
+    def COALESCENTTIME(self,THETA,TIME,MAXTIME):
+        return ((2/THETA)**(MAXTIME-1)) * mp.exp((self.TOTALCOALESCENTRATE(TIME,MAXTIME))/THETA)
+        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME,ANCESTORS))/THETA)
+        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME))/THETA)
+        #return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
 
     '''
     This function generates the maximum time of the tree based on times
@@ -270,7 +282,7 @@ class TreeSequenceGeneration():
     def Prior(self,THETA):
         if THETA < 1 and THETA > 0: # PRIOR FUNCTION
             return 1 # RETURNS .5 IF THETA IS BETWEEN THE BOUNDS
-        return .5 # RETURNS .25 IF NOT
+        return 0 # RETURNS 0 IF NOT
 
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the non joint likelihood function using provided times, theta
@@ -280,10 +292,10 @@ class TreeSequenceGeneration():
     def JOINTTHETA(self,THETA):
         LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
         FINAL_VALUE=1 # INITIALIZE FINAL VALUE TO BE 1
-        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
+        for TIME in reversed(range(2,self.TIMES+1)): # ITERATE THROUGH TIMES + 1
             BETAVALUE=self.BETA(THETA[0],TIME) # CALCULATE THE BETA VALUE FOR THETA AND TIME
             FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME]) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE JOINT LIKELIHOOD FUNCTION
-        return (LP + FINAL_VALUE) # RETURN FINAL VALUE + PRIOR
+        return (LP*FINAL_VALUE) # RETURN FINAL VALUE + PRIOR
 
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
@@ -293,10 +305,11 @@ class TreeSequenceGeneration():
     def JOINTTHETATIMES(self,THETA):
         LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
         FINALVALUE=1 # INITIALIZE FINAL VALUE TO BE 1
-        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
+        for TIME in reversed(range(2,self.TIMES+1)): # ITERATE THROUGH TIMES + 1
             #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
-            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
-        return (LP + FINALVALUE) # RETURN FINAL VALUE + PRIOR
+            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME,self.TIMES+1))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
+        return (LP * FINALVALUE ) # RETURN FINAL VALUE + PRIOR
+        #return THETA * 2
     
     '''
     This function generates a number of values from a log norm distribution based on the number of walkers. It then runs the 
@@ -438,10 +451,10 @@ class TreeSequenceGeneration():
                 NONJOINTTOTAL=np.concatenate((NONJOINTTOTAL,self.TREEPROBS[POSSIBLETOPOLOGIES][POSSIBLEMUTATIONTOPOLOGIES][1].reshape(-1,self.WALKERS)),axis=None) # CONCATS THE NON JOINT LIKELIHOOD THETAS TO AN A JOINT LIKELIHOOD THETA ARRAY
         NJSET=np.unique(NONJOINTTOTAL) # TAKES ALL UNIQUE THETA VALUES FOR NON JOINT LIKELIHOOD
         JSET=np.unique(JOINTTOTAL) # TAKES ALL UNIQUE THETA VALUES FOR JOINT LIKELIHOOD
-        print("Non Joint Sampler Unique Sum") # PRINT STATEMENT
-        print(NJSET) # PRINT STATEMENT
-        print("Joint Sampler Unique Sum") # PRINT STATEMENT
-        print(JSET) # PRINT STATEMENT
+        #print("Non Joint Sampler Unique Sum") # PRINT STATEMENT
+        #print(NJSET) # PRINT STATEMENT
+        #print("Joint Sampler Unique Sum") # PRINT STATEMENT
+        #print(JSET) # PRINT STATEMENT
         #plt.hist(NJSET,bins=15, alpha=0.4, label='NON JOINT LIKELIHOOD THETA DISTRIBUTION',density=True) # PLOT
         #plt.hist(JSET,bins=15, alpha=0.4, label='JOINT LIKELIHOOD THETA DISTRIBUTION',density=True) # PLOT
         #plt.legend(loc='upper right') # PLOT
@@ -477,7 +490,7 @@ MHastingsLoop functions.
 '''
 
 if __name__ == "__main__":
-    TSG=TreeSequenceGeneration(1,5000)
+    TSG=TreeSequenceGeneration(1,100)
     TSG.GenerateTheta()
     TSG.SimulateTree()
     TSG.SimulateSequence()

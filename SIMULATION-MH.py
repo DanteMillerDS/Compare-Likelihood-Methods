@@ -285,24 +285,27 @@ class TreeSequenceGeneration():
     This function return the result of the coalescent time function for
     a provided theta and time value.
     '''
-    def TOTALCOALESCENTRATE(self,CURRENTTIME,STARTINGLINEAGES):
+    def TOTALCOALESCENTRATE(self,THETA,CURRENTTIME,TOTALTIPS):
         SUM=0
-        LINEAGECOUNT=STARTINGLINEAGES
+        LINEAGECOUNT=TOTALTIPS
         for TIME in range(2,CURRENTTIME+1):
-            SUM=SUM+(-LINEAGECOUNT*(LINEAGECOUNT-1)*TIME)
+            SUM=SUM+(-LINEAGECOUNT*(LINEAGECOUNT-1)*mp.exp(THETA/(LINEAGECOUNT*(LINEAGECOUNT-1))))
             LINEAGECOUNT=LINEAGECOUNT-1
             #SUM=SUM+(-NUMBER OF LINEAGES*(NUMBER OF LINEAGES-1)*LENGTH T)
             #SUM=SUM+(TIME*TIME*(TIME-1))
         return SUM
    
-    def COALESCENTTIME(self,THETA,TIME,LINEAGES,TOTALTIPS):
-        return ((2/THETA)**(TOTALTIPS-1)) * mp.exp((self.TOTALCOALESCENTRATE(TIME,LINEAGES))/THETA)
+    def COALESCENTTIME(self,THETA,TIME,TOTALTIPS):
+        return ((WHAT IS THE MUTATION RATE)**(TOTALTIPS-1)) * mp.exp((self.TOTALCOALESCENTRATE(THETA,TIME,TOTALTIPS))/THETA)
         #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME,ANCESTORS))/THETA)
         #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME))/THETA)
         #return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
 
-    def MUTUTATIONTIMES(self,MUTATION,NODE):
-        return ((mp.exp(-MUTATIONRATE * M * NODE OR TIME)((MUTATIONRATE * M * NODE OR TIME)**MUTATION))/math.factorial(MUTATION))
+    def MUTUTATIONTIMES(self,THETA,MUTATION,LINEAGES):
+        #if MUTATION == 0:
+        #    return 0
+        #print(MUTATION)
+        return (mp.exp(((WHAT IS THE MUTATION RATE)* LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1))))*((THETA/2) * LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1)))))/math.factorial(MUTATION))
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
     and mutation dictionary. 
@@ -311,10 +314,12 @@ class TreeSequenceGeneration():
     def JOINTTHETATIMES(self,THETA):
         LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
         FINALVALUE=1 # INITIALIZE FINAL VALUE TO BE 1
-        NUMBEROFLINEAGES=self.TIMES
+        NUMBEROFLINEAGES=self.TIMES # NUMBER OF LINEAGES
         for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
             #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
-            FINALVALUE=FINALVALUE*((self.MUTUTATIONTIMES(self.MUTATIONDICTIONARY[TIME][0],TIME))*(self.COALESCENTTIME(THETA[0],TIME,NUMBEROFLINEAGES,self.TIMES))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
+            #print(self.MUTUTATIONTIMES(THETA[0],self.MUTATIONDICTIONARY[TIME][0],TIME,NUMBEROFLINEAGES))
+            #print((self.COALESCENTTIME(THETA[0],TIME,NUMBEROFLINEAGES,self.TIMES)))
+            FINALVALUE=FINALVALUE*((self.MUTUTATIONTIMES(THETA[0],self.MUTATIONDICTIONARY[TIME][0],NUMBEROFLINEAGES))*(self.COALESCENTTIME(THETA[0],TIME,self.TIMES))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
             NUMBEROFLINEAGES=NUMBEROFLINEAGES-1
         return (LP * FINALVALUE) # RETURN FINAL VALUE + PRIOR
         #return THETA * 2

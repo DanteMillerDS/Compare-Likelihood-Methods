@@ -174,24 +174,7 @@ class TreeSequenceGeneration():
     def BETA(self,THETA,TIME):
         return THETA/(TIME-1) # BETA FUNCTION
 
-    '''
-    This function return the result of the coalescent time function for
-    a provided theta and time value.
-    '''
-    def TOTALCOALESCENTRATE(self,CURRENTTIME,MAXTIME):
-        SUM=0
-        for TIME in range(2,CURRENTTIME+1):
-            SUM=SUM+(-MAXTIME*(MAXTIME-1)*TIME)
-            #SUM=SUM+(-NUMBER OF LINEAGES*(NUMBER OF LINEAGES-1)*LENGTH T)
-            #SUM=SUM+(TIME*TIME*(TIME-1))
-        return SUM
-   
-    def COALESCENTTIME(self,THETA,TIME,MAXTIME):
-        return ((2/THETA)**(MAXTIME-1)) * mp.exp((self.TOTALCOALESCENTRATE(TIME,MAXTIME))/THETA)
-        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME,ANCESTORS))/THETA)
-        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME))/THETA)
-        #return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
-
+  
     '''
     This function generates the maximum time of the tree based on times
     from the taken from the BRANCHLENGTH dictionary and that the first time is t2 or 2.
@@ -292,23 +275,48 @@ class TreeSequenceGeneration():
     def JOINTTHETA(self,THETA):
         LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
         FINAL_VALUE=1 # INITIALIZE FINAL VALUE TO BE 1
-        for TIME in reversed(range(2,self.TIMES+1)): # ITERATE THROUGH TIMES + 1
+        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
             BETAVALUE=self.BETA(THETA[0],TIME) # CALCULATE THE BETA VALUE FOR THETA AND TIME
             FINAL_VALUE=FINAL_VALUE*(1/(BETAVALUE+1))*((BETAVALUE/(BETAVALUE+1))**self.MUTATIONDICTIONARY[TIME]) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE JOINT LIKELIHOOD FUNCTION
         return (LP*FINAL_VALUE) # RETURN FINAL VALUE + PRIOR
 
+
+    '''
+    This function return the result of the coalescent time function for
+    a provided theta and time value.
+    '''
+    def TOTALCOALESCENTRATE(self,CURRENTTIME,STARTINGLINEAGES):
+        SUM=0
+        LINEAGECOUNT=STARTINGLINEAGES
+        for TIME in range(2,CURRENTTIME+1):
+            SUM=SUM+(-LINEAGECOUNT*(LINEAGECOUNT-1)*TIME)
+            LINEAGECOUNT=LINEAGECOUNT-1
+            #SUM=SUM+(-NUMBER OF LINEAGES*(NUMBER OF LINEAGES-1)*LENGTH T)
+            #SUM=SUM+(TIME*TIME*(TIME-1))
+        return SUM
+   
+    def COALESCENTTIME(self,THETA,TIME,LINEAGES,TOTALTIPS):
+        return ((2/THETA)**(TOTALTIPS-1)) * mp.exp((self.TOTALCOALESCENTRATE(TIME,LINEAGES))/THETA)
+        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME,ANCESTORS))/THETA)
+        #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME))/THETA)
+        #return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
+
+    def MUTUTATIONTIMES(self,MUTATION,NODE):
+        return ((mp.exp(-MUTATIONRATE * M * NODE OR TIME)((MUTATIONRATE * M * NODE OR TIME)**MUTATION))/math.factorial(MUTATION))
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
     and mutation dictionary. 
     '''
-
+    
     def JOINTTHETATIMES(self,THETA):
         LP = self.Prior(THETA[0]) # RETURNS A PRIOR BASED ON THETA
         FINALVALUE=1 # INITIALIZE FINAL VALUE TO BE 1
-        for TIME in reversed(range(2,self.TIMES+1)): # ITERATE THROUGH TIMES + 1
+        NUMBEROFLINEAGES=self.TIMES
+        for TIME in range(2,self.TIMES+1): # ITERATE THROUGH TIMES + 1
             #POWER=(1*TIME*self.COALESCENTTIME(THETA[0],TIME))
-            FINALVALUE=FINALVALUE*((self.MUTATIONDICTIONARY[TIME][0])*(self.COALESCENTTIME(THETA[0],TIME,self.TIMES+1))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
-        return (LP * FINALVALUE ) # RETURN FINAL VALUE + PRIOR
+            FINALVALUE=FINALVALUE*((self.MUTUTATIONTIMES(self.MUTATIONDICTIONARY[TIME][0],TIME))*(self.COALESCENTTIME(THETA[0],TIME,NUMBEROFLINEAGES,self.TIMES))) # SETS THE FINAL VALUE TO BE FINAL VALUE * THE NON JOINT LIKELIHOOD FUNCTION
+            NUMBEROFLINEAGES=NUMBEROFLINEAGES-1
+        return (LP * FINALVALUE) # RETURN FINAL VALUE + PRIOR
         #return THETA * 2
     
     '''
@@ -332,9 +340,9 @@ class TreeSequenceGeneration():
             samplesone = JOINTSAMPLER.get_chain(flat=True) # SETS A VARIABLE EQUAL TO THE MATRIX CHAIN FOR THE JOINT SAMPLER
             samplestwo = NONJOINTSAMPLER.get_chain(flat=True) # SETS A VARIABLE EQUAL TO THE MATRIX CHAIN FOR THE NON JOINT SAMPLER
             print("Joint Sampler")
-            print(samplesone[:, 0])
+            #print(samplesone[:, 0])
             print("Non Joint Sampler")
-            print(samplestwo[:, 0])
+            #print(samplestwo[:, 0])
             #plt.hist(samplesone[:, 0], 100, color="k", histtype="step")
             #plt.hist(samplestwo[:, 0], 100, color="m", histtype="step")
             #plt.xlabel(r"$\theta_1$")

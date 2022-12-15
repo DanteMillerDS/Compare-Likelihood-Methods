@@ -130,7 +130,15 @@ class TreeSequenceGeneration():
             SEQUENCEONE=SPECIESONE.id.split(" ", 1)[1][1:] # GRABBING SEQUENCEONE
             for J,SPECIESTWO in enumerate(ALN): # ITERATE THROUGH ALN
                 SEQUENCETWO=SPECIESTWO.id.split(" ", 1)[1][1:] # GRABBING SEQUENCETWO
-                DISTANCEMATRIX[I,J]=self.ComputeSimilarity(Counter(SEQUENCEONE), Counter(SEQUENCETWO)) # PROVIDES A DICTIONARY OF SEQUENCEONE AND SEQUENCETWO NUCLEOTIDES AND OCCURENCES TO A COSINESIMILARLITY FUNCTION
+                if SEQUENCEONE == SEQUENCETWO:
+                    DISTANCEMATRIX[I,J] = 0
+                else:
+                    DISTANCE=0
+                    for NUCLEOTIDEONE, NUCLEOTIDETWO in zip(SEQUENCEONE, SEQUENCETWO):
+                        if NUCLEOTIDEONE != NUCLEOTIDETWO:
+                            DISTANCE += 1
+                    #DISTANCEMATRIX[I,J] = DISTANCE
+                    DISTANCEMATRIX[I,J]=self.ComputeSimilarity(Counter(SEQUENCEONE), Counter(SEQUENCETWO)) # PROVIDES A DICTIONARY OF SEQUENCEONE AND SEQUENCETWO NUCLEOTIDES AND OCCURENCES TO A COSINESIMILARLITY FUNCTION
         SPECIESNAMES = [SP.id.split(" ",1)[0] for SP in ALN] # FINDS ALL THE SPECIES/TAXA NAMES
         UPDATEDDISTANCEMATRIX=list(str(upgma(DISTANCEMATRIX))) # CALLS UPGMA ON THE DISTANCE MATRIX WHICH RETURNS A STR WHICH IS THEN TURNED INTO A LIST
         for i in range(len(UPDATEDDISTANCEMATRIX)): # ITERATE THROUGH STRING
@@ -288,7 +296,7 @@ class TreeSequenceGeneration():
     def TOTALCOALESCENTRATE(self,THETA,CURRENTTIME,TOTALTIPS):
         SUM=0
         LINEAGECOUNT=TOTALTIPS
-        for TIME in range(2,CURRENTTIME+1):
+        for TIME in reversed(range(2,CURRENTTIME+1)):
             SUM=SUM+(-LINEAGECOUNT*(LINEAGECOUNT-1)*mp.exp(THETA/(LINEAGECOUNT*(LINEAGECOUNT-1))))
             LINEAGECOUNT=LINEAGECOUNT-1
             #SUM=SUM+(-NUMBER OF LINEAGES*(NUMBER OF LINEAGES-1)*LENGTH T)
@@ -296,7 +304,7 @@ class TreeSequenceGeneration():
         return SUM
    
     def COALESCENTTIME(self,THETA,TIME,TOTALTIPS):
-        return ((WHAT IS THE MUTATION RATE)**(TOTALTIPS-1)) * mp.exp((self.TOTALCOALESCENTRATE(THETA,TIME,TOTALTIPS))/THETA)
+        return (((TOTALTIPS)*(TOTALTIPS-1))/THETA) * mp.exp((self.TOTALCOALESCENTRATE(THETA,TIME,TOTALTIPS))/THETA)
         #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME,ANCESTORS))/THETA)
         #return ((2/THETA)**(TIME-1)) * mp.exp((-2*self.TOTALCOALESCENTRATE(TIME))/THETA)
         #return ((THETA)/(TIME*(TIME-1))) # COALESCENT TIME FUNCTION
@@ -305,7 +313,7 @@ class TreeSequenceGeneration():
         #if MUTATION == 0:
         #    return 0
         #print(MUTATION)
-        return (mp.exp(((WHAT IS THE MUTATION RATE)* LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1))))*((THETA/2) * LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1)))))/math.factorial(MUTATION))
+        return (mp.exp(((THETA/(4*1000))* LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1))))*((THETA/(4*1000)) * LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1)))))/math.factorial(MUTATION))
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
     and mutation dictionary. 
@@ -425,6 +433,7 @@ class TreeSequenceGeneration():
         self.TIMES=self.ReturnTimes() # RETURNS TIME
         self.MUTATIONS=self.FindMutations() # RETURNS MUTATIONS
         self.SPECIETIMES=self.FindSpeciesTimes(self.BRANCHLENGTH) # RETURNS SPECIES TIMES
+        print(self.MUTATIONS)
         CALLBACKS=[[]] # CREATES A CALLBACK ARRAY
         for TAXON in self.BRANCHLENGTH:
             if "Clade" not in TAXON: # WORK IN PROGRESS

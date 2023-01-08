@@ -51,6 +51,7 @@ class TreeSequenceGeneration():
         self.MHASTINGPROBS=dict()
         self.TREEPROBS=dict()
         self.WALKERS=WALKER
+        self.SEQUENCELENGTH=1000
     '''
     This function generates a random theta value
     based on the shape parameter.
@@ -88,7 +89,7 @@ class TreeSequenceGeneration():
     '''
 
     def SimulateSequence(self):
-        self.SEQUENCE=dendropy.model.discrete.hky85_chars(1000,tree_model=self.TREE) # SIMULATE SEQEUNCES OF THE TREE UP TO 1000 CHARACTERS
+        self.SEQUENCE=dendropy.model.discrete.hky85_chars(self.SEQUENCELENGTH,tree_model=self.TREE) # SIMULATE SEQEUNCES OF THE TREE UP TO 1000 CHARACTERS
         self.SEQUENCE=self.SEQUENCE.as_string(schema="phylip") # SHOW SEQUENCE USING THE PHYLIP SCHEME
         print("Sequence Derived from Tree Simulation")
         print()
@@ -105,8 +106,8 @@ class TreeSequenceGeneration():
     alter the GenerateTreeForSequence function.
     '''
 
+    # DOES NOT WORK FOR INSERTIONS AND DELETIONS NEEDS TO BE FIXED
     def ComputeSimilarity(self,SEQUENCEONE,SEQUENCETWO):
-        # NEEDS TO WORK FOR INSERTIONS AND DELETIONS SO TAKE THE ALIGNMENT OF THE SETS AND CALCULATE SCORE?
         TERMS=set(SEQUENCEONE).union(SEQUENCETWO) # TAKES THE UNION OF THE TWO SETS
         DOTPRODUCT=sum(SEQUENCEONE.get(k,0)*SEQUENCETWO.get(k,0)for k in TERMS) # MULTIPLY OCCURENCES OF EACH NUCLEOTIDE IN SEQUENCEONE BY SEQUENCETWO THEN TAKE SUM
         MAGA=math.sqrt(sum(SEQUENCEONE.get(k,0)**2 for k in TERMS)) # TAKE THE OCCURENCE OF EACH NUCLEOTIDE SQUARED THEN TAKE SUM SEQUENCEONE
@@ -123,6 +124,7 @@ class TreeSequenceGeneration():
     a more simplier method such as neighbor joining (neighbor_joining).
     '''
     
+    # FIX HOW THE DISTANCE MATRIX IS CALCULATED
     def GenerateTreeForSequence(self):
         ALN=AlignIO.read(StringIO(self.SEQUENCE),'phylip') # INPUTS THE SEQUENCES AS AN ALIGNMENT
         DISTANCEMATRIX=np.zeros([len(ALN), len(ALN)]) # INTIATE DISTANCE MATRIX
@@ -133,10 +135,10 @@ class TreeSequenceGeneration():
                 if SEQUENCEONE == SEQUENCETWO:
                     DISTANCEMATRIX[I,J] = 0
                 else:
-                    DISTANCE=0
-                    for NUCLEOTIDEONE, NUCLEOTIDETWO in zip(SEQUENCEONE, SEQUENCETWO):
-                        if NUCLEOTIDEONE != NUCLEOTIDETWO:
-                            DISTANCE += 1
+                    #DISTANCE=0
+                    #for NUCLEOTIDEONE, NUCLEOTIDETWO in zip(SEQUENCEONE, SEQUENCETWO):
+                    #    if NUCLEOTIDEONE != NUCLEOTIDETWO:
+                    #        DISTANCE += 1
                     #DISTANCEMATRIX[I,J] = DISTANCE
                     DISTANCEMATRIX[I,J]=self.ComputeSimilarity(Counter(SEQUENCEONE), Counter(SEQUENCETWO)) # PROVIDES A DICTIONARY OF SEQUENCEONE AND SEQUENCETWO NUCLEOTIDES AND OCCURENCES TO A COSINESIMILARLITY FUNCTION
         SPECIESNAMES = [SP.id.split(" ",1)[0] for SP in ALN] # FINDS ALL THE SPECIES/TAXA NAMES
@@ -205,7 +207,7 @@ class TreeSequenceGeneration():
 
     def FindMutations(self):
         MUTATIONDICTIONARY=dict() # CREATES MUTATION DICTIONARY
-        SEQUENCELENGTH=1000 # SEQUENCE LENGTH
+        SEQUENCELENGTH=self.SEQUENCELENGTH # SEQUENCE LENGTH
         for TAXON in self.BRANCHLENGTH: # ITERATES THROUGH BRANCHES
             if "Clade" not in TAXON: # IF CLADE IS NOT IN THE TAXON NAME
                 MUTATION=int(round((SEQUENCELENGTH*self.BRANCHLENGTH[TAXON])/100)) # FINDS AMOUNT OF MUTATIONS ON EACH BRANCH
@@ -217,6 +219,7 @@ class TreeSequenceGeneration():
     are associated with their correct times.
     '''
 
+    # THE FUNCTION SHOULD BE REDUCED TO A SIMPLIFIED FORM
     def FindSpeciesTimes(self,BRANCHLENGTH):
          MUTATIONS=dict() # CREATES A MUTATION DICTIONARY
          TIMES=2 # SETS THE CURRENT TIME TO BE 2
@@ -313,7 +316,8 @@ class TreeSequenceGeneration():
         #if MUTATION == 0:
         #    return 0
         #print(MUTATION)
-        return (mp.exp(((THETA/(4*1000))* LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1))))*((THETA/(4*1000)) * LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1)))))/math.factorial(MUTATION))
+        # 4*1000 MAY NEED TO BE FIXED
+        return (mp.exp(((THETA/(4*self.SEQUENCELENGTH))* LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1))))*((THETA/(4*self.SEQUENCELENGTH)) * LINEAGES * mp.exp(THETA/(LINEAGES*(LINEAGES-1)))))/math.factorial(MUTATION))
     '''
     This function returns a likelihood value. It calls the prior function based on theta. It then applied the joint likelihood function using provided times, theta
     and mutation dictionary. 
@@ -385,20 +389,16 @@ class TreeSequenceGeneration():
     '''
 
     def callBacks(self,CALLBACKS,MUTATIONS,SPECIETIMES):
-       if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY
-            SPECIE=CALLBACKS[len(CALLBACKS)-1] # GRABS THE SPECIE AT THE LOWEST TIME
-            CALLBACKS.remove(SPECIE) # REMOVE ITS FROM THE SPECIES ARRAY
-            MUTATION=MUTATIONS[SPECIE] # GRABS THE SPECIES ESTIMATED TIME VALUE
-            TIME=SPECIETIMES[SPECIE] # GRABS THE MAXIMUM TIME FOR THE SPECIES
-            CURRENTTIME=2 # DEFINES THE CURRENT TIME TO BE 2
-            self.SPECIESDICTIONARY[SPECIE]=[] # ADDS AN ARRAY IN THE SPECIES DICTIONARY FOR THE SELECTED SPECIE
-            PASSDICTIONARY=dict() # DEFINES A NEW DICTIONARY
-            for FIRSTTIME in range(1,int(MUTATION)+2): # ITERATES THROUGH THE MUTATION PLACEMENT FOR THE OVERALL SPECIES
-                PASSDICTIONARY[CURRENTTIME]=FIRSTTIME-1 # PLACES THE NUMBER OF MUTATIONS IN THE DICTIONARY FOR THE FIRST TIME
-                CARRYOVER=MUTATION-(PASSDICTIONARY[CURRENTTIME]) # CREATES A CARRYOVER VARIABLE BASED ON THE OVERALL MUTATIONS SUBTRACTED BY THE MUTATIONS FOR THE FIRST TIME
-                self.callBackMutation(TIME,CURRENTTIME+1,SPECIE,PASSDICTIONARY,CARRYOVER,MUTATION) # CALLS THE CALL BACK MUTATION FUNCTION USING PREVIOUS DEFINED VARIABLES
-            if CALLBACKS != []: # IF THE SPECIES ARRAY IS NOT EMPTY EMPTY
-                return self.callBacks(CALLBACKS,MUTATIONS,SPECIETIMES) # RECALLS ITSELF USING A DIFFERENT SPECIES
+        for SPECIE in CALLBACKS: # ITERATING THROUGH SPECIES
+            MUTATION = MUTATIONS[SPECIE] # CREATEING MUTATION VARIABLE FOR SPECIE
+            TIME = SPECIETIMES[SPECIE] # CREATING TIME VARIABLE FOR SPECIE
+            CURRENTTIME = 2 # SET CURRENT TIME TO 2
+            self.SPECIESDICTIONARY[SPECIE] = [] # SET SPECIES KEY IN DICTIONARY TO ARRAY
+            PASSDICTIONARY = {} # CREATE DICTIONARY
+            for FIRSTTIME in range(1, int(MUTATION)+2): # ITERATE THROUGH MUTATIONS
+                PASSDICTIONARY[CURRENTTIME] = FIRSTTIME-1 # SET TIME IN PASSDICTIONARY TO MUTATION VALUE
+                CARRYOVER = MUTATION-(PASSDICTIONARY[CURRENTTIME]) # DETERMINE THE MUTATIONS TO CARRY TO THE NEXT SPECIES
+                self.callBackMutation(TIME, CURRENTTIME+1, SPECIE, PASSDICTIONARY, CARRYOVER, MUTATION) # CALLS CALLBACKMUTATIONS FUNCTION
 
     '''
     This function is recursive function that is creating an array based on the combinations of the mutation placements for all the species. M=
